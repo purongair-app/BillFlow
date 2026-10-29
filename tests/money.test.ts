@@ -211,3 +211,20 @@ test('browser device reference reuses the persisted identifier and does not requ
 });
 
 import './withholding.test.ts';
+
+import {describeDevice} from '../src/usage.ts';
+test('usage device type distinguishes desktop, iPhone, iPad and Android tablets from stored user agents',()=>{
+ const desktop=describeDevice('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/156.0.0.0 Safari/537.36','browser');assert.deepEqual(desktop,{kind:'desktop',label:'คอมพิวเตอร์',os:'Windows',browser:'Chrome'});
+ const phone=describeDevice('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1');assert.equal(phone.kind,'mobile');assert.equal(phone.os,'iOS');assert.equal(phone.browser,'Safari');
+ const ipad=describeDevice('Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1');assert.equal(ipad.kind,'tablet');assert.equal(ipad.os,'iPadOS');
+ assert.equal(describeDevice('Mozilla/5.0 (Linux; Android 14; SM-X710) AppleWebKit/537.36 Chrome/130.0.0.0 Safari/537.36').kind,'tablet');
+ assert.equal(describeDevice('Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/130.0.0.0 Mobile Safari/537.36').kind,'mobile');
+});
+test('usage browser classification respects overlapping Edge and Samsung tokens and leaves unknown/system types explicit',()=>{
+ assert.equal(describeDevice('Mozilla/5.0 (Windows NT 10.0) Chrome/130.0 Safari/537.36 Edg/130.0').browser,'Microsoft Edge');
+ assert.equal(describeDevice('Mozilla/5.0 (Linux; Android 14) SamsungBrowser/25.0 Chrome/130.0 Mobile Safari/537.36').browser,'Samsung Internet');
+ assert.equal(describeDevice('Mozilla/5.0 (Macintosh; Intel Mac OS X 14.0; rv:130.0) Gecko/20100101 Firefox/130.0').os,'macOS');
+ assert.equal(describeDevice('').kind,'unknown');assert.equal(describeDevice('Deno/2.0','system').kind,'automation');assert.equal(describeDevice('UnrecognizedClient/1').kind,'unknown');
+ const row={id:'1',occurred_at:'2026-10-29T14:00:00Z',actor_name:'QA',actor_email:'',description:'เปิดเมนู',entity_type:'settings',entity_id:'',ip:null,device_id:null,user_agent:'Mozilla/5.0 (Windows NT 10.0) Chrome/130.0 Safari/537.36 Edg/130.0',source:'browser'} as UsageEvent;
+ const csv=usageCsv([row]);assert.match(csv,/ประเภทอุปกรณ์/);assert.match(csv,/คอมพิวเตอร์/);assert.match(csv,/Windows/);assert.match(csv,/Microsoft Edge/);
+});

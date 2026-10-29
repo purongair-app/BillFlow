@@ -13,3 +13,9 @@ Events are kept in `billflow_private.usage_events`, outside the ledger/reset pay
 Migrations: `supabase/usage-history.sql`, `supabase/usage-history-coverage.sql`. Validation includes unit tests and the production build, rolled-back synthetic SQL checks for authoritative session IP, device metadata, actor name, mutation fields, arbitrary-context redaction, owner-only reading, rejection of client updates/deletes/direct actor-forging, event retention after clearing financial data, and regression checks for reset/recurrence workflows. No real user account or ledger was reset by testing. Browser visual QA was unavailable.
 
 Brand subtitle also corrected to the exact requested `by PUROnGAIR`.
+
+## Device type display
+
+The history table now shows a separate device column: computer, mobile, tablet, automatic system, or unknown, plus an inferred operating system and browser. CSV exports include the same three fields while retaining the original user agent. These labels are derived from the already-stored user agent, so existing detailed records can display them without rewriting the audit log or collecting additional device data. Edge/Opera/Samsung/Firefox signatures are checked before overlapping Chrome/Safari signatures. Android without Mobile and explicit iPad/Tablet identifiers classify as tablets. Generic/empty clients remain unknown; server-origin events are automatic system events.
+
+The UI explains this is an estimate based on browser-reported data and may be wrong in desktop mode or with spoofed user agents. It does not identify a physical laptop/desktop model or guarantee distinction between iPad desktop mode and a Mac. Representative regression cases cover Windows Chrome/Edge, iPhone Safari, iPad Safari, Android phone/tablet, Samsung Internet, macOS Firefox, empty/unknown user agents and system events. Production build and 62 tests pass.
