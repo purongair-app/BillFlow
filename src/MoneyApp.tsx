@@ -22,7 +22,7 @@ import DocumentSources from './DocumentSources';
 import {upsertDebt} from './debts';
 'use client';
 import {useEffect,useState,useRef} from 'react';
-import {LayoutDashboard,ArrowLeftRight,Wallet,Users,ChartNoAxesCombined,Settings,Plus,ArrowUpRight,ArrowDownLeft,Search,Download,Paperclip,X,Menu,ChevronRight,ShieldCheck,Target,FileText,Trash2,Pencil,LogOut,BookOpen,ArrowLeft,RotateCw,House,CalendarDays,Clock3,Thermometer,Sun,Moon,Cloud,CloudSun,CloudMoon,CloudRain,CloudLightning,CloudFog,Snowflake} from 'lucide-react';
+import {LayoutDashboard,ArrowLeftRight,Wallet,Users,ChartNoAxesCombined,Settings,Plus,ArrowUpRight,ArrowDownLeft,Search,Download,Paperclip,X,Menu,ChevronRight,ShieldCheck,Target,FileText,Trash2,Pencil,LogOut,BookOpen,ArrowLeft,RotateCw,House,CalendarDays,Clock3,Thermometer,Sun,Moon,Cloud,CloudSun,CloudMoon,CloudRain,CloudLightning,CloudFog,Snowflake,Mic,MicOff} from 'lucide-react';
 import {State,Entry,Debt,ExpenseKind,ContactKind,initialState,money,today,dateLabel,balance,remaining,validateState} from './money';
 import Cashbook from './AccountingWorkspace';
 import Accounts from './Accounts';
@@ -46,6 +46,58 @@ function DebtDueStatus({due,left}:{due:string,left:number}){
  const color=left<=0?'#17634b':days<0?'#a52d24':days<=7?'#895000':'#40594e';
  const background=left<=0?'#e9f4ee':days<0?'#ffefed':days<=7?'#fff3d9':'#eef3f0';
  return <><small>ครบกำหนด {dateLabel(due)}</small><small><span style={{display:'inline-block',padding:'4px 9px',borderRadius:6,fontWeight:600,color,background}}>{left>0&&days>0&&days<=7?'ใกล้ครบกำหนด • ':''}{label}</span></small></>;
+}
+
+
+type MenuSpeechRecognition={lang:string;continuous:boolean;interimResults:boolean;maxAlternatives:number;onstart:(()=>void)|null;onend:(()=>void)|null;onerror:((event:{error:string})=>void)|null;onresult:((event:{results:ArrayLike<ArrayLike<{transcript:string}>>})=>void)|null;start:()=>void;abort:()=>void};
+function voiceMenu(text:string){
+ let command=text.toLowerCase().replace(/[\s.,!?ๆฯ–—\-]/g,'').replace(/(?:ครับ|ค่ะ|คะ|หน่อย|ให้หน่อย|ด้วย)$/g,'');
+ let before='';while(before!==command){before=command;command=command.replace(/^(?:กรุณา|ช่วย|ขอ|ไปที่|ไปยัง|ไป|เปิด|เลือก|เมนู|หน้า)/,'');}
+ const aliases:Record<string,string[]>={
+ overview:['หลัก','หน้าหลัก','ภาพรวม','ภาพรวมการเงิน','แดชบอร์ด'],
+ entries:['รายรับรายจ่าย','รายรับ','รายจ่าย','รายการรับจ่าย','รับจ่าย','รายการวันนี้'],
+ cashbook:['สมุดบัญชี','สมุดเงินสด','บัญชีรายวัน'],
+ accounts:['บัญชีเงิน','บัญชีธนาคาร','เงินสดและธนาคาร'],
+ people:['รายชื่อ','ผู้ติดต่อ','รายชื่อผู้ติดต่อ','ลูกค้า','พนักงาน'],
+ debts:['ลูกหนี้','เจ้าหนี้','ลูกหนี้เจ้าหนี้','หนี้สิน'],
+ payroll:['เงินเดือน','สลิปเงินเดือน','ค่าแรง'],
+ budgets:['รายจ่ายประจำ','ค่าใช้จ่ายประจำ'],
+ reports:['รายงาน','รายงานการเงิน'],
+ inbox:['เอกสารจากไลน์','เอกสารจากline','เอกสารไลน์','กล่องเอกสาร','บิลจากไลน์'],
+ line:['แจ้งเตือนไลน์','แจ้งเตือนline','แจ้งเตือน','การแจ้งเตือนไลน์'],
+ permissions:['สิทธิ์ผู้ใช้งาน','สิทธิผู้ใช้งาน','สิทธิ์','สิทธิ','กำหนดสิทธิ์'],
+ settings:['ตั้งค่า','การตั้งค่า','ตั้งค่าระบบ']
+ };
+ return Object.entries(aliases).find(([,words])=>words.includes(command))?.[0];
+}
+function VoiceMenu({access,disabled,onNavigate}:{access:Access,disabled:boolean,onNavigate:(menu:string)=>boolean}){
+ const [listening,SetListening]=useState(false),[message,SetMessage]=useState('');
+ const current=useRef<MenuSpeechRecognition|null>(null),timer=useRef<ReturnType<typeof setTimeout>|null>(null);
+ const latest=useRef({access,disabled,onNavigate});latest.current={access,disabled,onNavigate};
+ function stop(){const speech=current.current;current.current=null;if(timer.current)clearTimeout(timer.current);if(speech){speech.onstart=null;speech.onend=null;speech.onresult=null;speech.onerror=null;speech.abort();}SetListening(false);}
+ useEffect(()=>{const hidden=()=>{if(document.hidden){stop();SetMessage('หยุดฟังเมื่อซ่อนหน้าจอแล้ว')}};document.addEventListener('visibilitychange',hidden);return()=>{document.removeEventListener('visibilitychange',hidden);const speech=current.current;current.current=null;if(timer.current)clearTimeout(timer.current);if(speech){speech.onstart=null;speech.onend=null;speech.onresult=null;speech.onerror=null;speech.abort()}}},[]);
+ useEffect(()=>{if(disabled){stop();}},[disabled]);
+ function start(){
+ if(listening||current.current){stop();SetMessage('หยุดรับคำสั่งเสียงแล้ว');return;}
+ if(latest.current.disabled)return;
+ const browser=window as unknown as {SpeechRecognition?:new()=>MenuSpeechRecognition,webkitSpeechRecognition?:new()=>MenuSpeechRecognition};
+ const Recognition=browser.SpeechRecognition||browser.webkitSpeechRecognition;
+ if(!Recognition){SetMessage('เบราว์เซอร์นี้ยังไม่รองรับคำสั่งเสียง กรุณาลองใช้ Chrome หรือเลือกเมนูตามปกติ');return;}
+ if(!window.isSecureContext){SetMessage('กรุณาเปิดเว็บผ่าน HTTPS เพื่อใช้ไมโครโฟน');return;}
+ const speech=new Recognition();current.current=speech;speech.lang='th-TH';speech.continuous=false;speech.interimResults=false;speech.maxAlternatives=3;let received=false;
+ SetMessage('กำลังเปิดไมโครโฟน… พูดชื่อเมนู เช่น เปิดเงินเดือน');
+ speech.onstart=()=>{SetListening(true);SetMessage('กำลังฟัง… พูดชื่อเมนูที่ต้องการ');timer.current=setTimeout(()=>{stop();SetMessage('หมดเวลารับคำสั่ง กดไมโครโฟนเพื่อลองใหม่')},15000)};
+ speech.onresult=event=>{received=true;const alternatives=Array.from(event.results[0]||[]).map(x=>x.transcript);const text=alternatives[0]||'';const menu=alternatives.map(voiceMenu).find(Boolean);stop();
+ if(latest.current.disabled)return;
+ if(!menu){SetMessage('ได้ยินว่า “'+text+'” แต่ยังไม่ตรงกับเมนู ลองพูด เปิดเงินเดือน หรือ ไปหน้าหลัก');return;}
+ if(!canView(latest.current.access,menu)){SetMessage('คุณยังไม่มีสิทธิ์เข้าถึงเมนูนี้');return;}
+ const label=nav.find(([key])=>key===menu)?.[1]||menu;const moved=latest.current.onNavigate(menu);SetMessage(moved?'เปิดเมนู '+label+' แล้ว':'ยกเลิกการเปลี่ยนหน้าแล้ว');
+ };
+ speech.onerror=event=>{received=true;const errors:Record<string,string>={'not-allowed':'กรุณาอนุญาตไมโครโฟนในเบราว์เซอร์ แล้วลองอีกครั้ง','service-not-allowed':'บริการรู้จำเสียงยังไม่พร้อมใช้งานในเบราว์เซอร์นี้','audio-capture':'ไม่พบไมโครโฟน กรุณาตรวจการเชื่อมต่อ','no-speech':'ยังไม่ได้ยินเสียง กรุณาลองพูดอีกครั้ง','network':'เชื่อมบริการรู้จำเสียงไม่ได้ กรุณาตรวจอินเทอร์เน็ต','language-not-supported':'เบราว์เซอร์นี้ยังไม่รองรับการรู้จำเสียงภาษาไทย'};stop();SetMessage(errors[event.error]||'รับคำสั่งเสียงไม่สำเร็จ กรุณาลองใหม่')};
+ speech.onend=()=>{if(current.current===speech){current.current=null;if(timer.current)clearTimeout(timer.current);SetListening(false);if(!received)SetMessage('ยังไม่ได้รับคำสั่ง กดไมโครโฟนเพื่อลองใหม่')}};
+ try{speech.start()}catch{stop();SetMessage('เปิดไมโครโฟนไม่ได้ กรุณาตรวจสิทธิ์ไมโครโฟนแล้วลองใหม่')}
+ }
+ return <div className="voice-navigation"><button type="button" className={listening?'voice-menu-button listening':'voice-menu-button'} disabled={disabled} aria-pressed={listening} onClick={start} title="กดแล้วพูดชื่อเมนู เช่น เปิดเงินเดือน · ใช้บริการรู้จำเสียงของเบราว์เซอร์">{listening?<MicOff size={17}/>:<Mic size={17}/>}<span>{listening?'หยุดฟัง':'สั่งด้วยเสียง'}</span></button>{message&&<div className="voice-menu-panel"><div role="status" aria-live="polite">{message}</div><small>ตัวอย่าง: “เปิดเงินเดือน” “สมุดบัญชี” “ไปหน้าหลัก”<br/>รู้จำเสียงผ่านบริการของเบราว์เซอร์ ซึ่งอาจส่งเสียงไปประมวลผลออนไลน์</small><button type="button" onClick={()=>{stop();SetMessage('')}}>ปิด</button></div>}</div>;
 }
 
 function weatherAppearance(code:string){
@@ -202,13 +254,20 @@ return <div className="app"><aside className={mobile?'sidebar visible':'sidebar'
 .weather-card-error{grid-column:1/-1;color:#b91c1c;font-size:12px;margin:0}
 @media(max-width:1150px){.weather-card{padding:22px;gap:18px}.weather-card-summary{gap:14px}.weather-card-temperature{font-size:44px}.weather-card-temperature>span{font-size:30px}.weather-card-description>b{font-size:17px}.weather-card-icon svg{width:54px;height:54px}.weather-card-datetime{font-size:16px}}
 @media(max-width:650px){.weather-card{grid-template-columns:minmax(0,1fr);padding:20px 16px;border-radius:16px;gap:18px}.weather-card-summary{gap:12px}.weather-card-description{flex:1 1 130px}.weather-card-description>p{font-size:12px}.weather-card-context{align-items:flex-start;border-top:1px solid #d1ddf5;padding-top:14px}.weather-card-datetime,.weather-card-location{justify-content:flex-start}.weather-card-datetime{font-size:15px}.weather-card-credit{font-size:10px}}
+.voice-navigation{position:relative;flex-shrink:0}
+.voice-menu-button{min-height:44px}
+.voice-menu-button.listening{color:#b91c1c;border-color:#f1a4a4;background:#fff1f2}
+.voice-menu-panel{position:absolute;right:0;top:calc(100% + 8px);width:min(340px,calc(100vw - 32px));padding:16px;background:#fff;border:1px solid #d6e5dd;border-radius:12px;box-shadow:0 8px 30px #193d2726;z-index:4;font-size:13px;line-height:1.8;color:#294b3a}
+.voice-menu-panel small{margin-top:8px;font-size:11px;line-height:1.7}
+.voice-menu-panel>button{margin-top:10px}
+@media(max-width:520px){.topbar .topbar-actions{flex-wrap:wrap;gap:6px}.voice-navigation{margin-left:auto}.voice-menu-button{font-size:12px;padding:8px}.topbar .topbar-navigation{margin-left:0}}
 .topbar-actions{display:flex;align-items:center;gap:14px}
 .topbar-navigation{display:flex;align-items:center;gap:6px}
 .topbar-navigation button{min-height:38px;padding:8px 10px}
 .topbar-navigation button:disabled{cursor:default}
 @media(max-width:800px){.topbar{min-height:60px}.topbar-actions{gap:8px}.topbar-actions .status{display:none}}
 @media(max-width:520px){.topbar .crumb{flex-basis:100%}.topbar-actions{width:100%}.topbar-navigation{width:100%}.topbar-navigation button{flex:1;font-size:12px;min-height:40px}}
-`}</style><header className="topbar"><div className="crumb"><button className="mobile-menu" aria-label="เปิดเมนู" onClick={()=>M(!mobile)}><Menu/></button><span>{s.business}</span><ChevronRight size={14}/><b>{nav.find(n=>n[0]===view)?.[1]}</b></div><div className="topbar-actions"><div className="topbar-navigation" role="group" aria-label="การนำทาง"><button type="button" disabled={!loaded||busy||!previousView} onClick={goBack}><ArrowLeft size={17}/>ย้อนกลับ</button><button type="button" disabled={busy} onClick={refreshPage}><RotateCw size={17}/>รีเฟรช</button><button type="button" disabled={!loaded||busy||!homeView} onClick={goHome}><House size={17}/>หน้าหลัก</button></div><div className="status"><span/> {busy?'กำลังบันทึก…':loaded?'เชื่อมต่อแล้ว':'กำลังเชื่อมต่อ'}</div></div></header><main>{view==='overview'&&<>{loaded&&<SmartGreeting name={sidebarProfile.name||email} state={s} access={access} onNavigate={menu=>{V(menu);if(menu==='entries')Mo(today().slice(0,7));M(false)}}/>}<HeaderEnvironment/></>}<div className="page-heading"><div><div className="eyebrow">YOUR MONEY, CLEARLY.</div><h1>{view==='overview'?'ภาพรวมการเงิน':nav.find(n=>n[0]===view)?.[1]}</h1><p>{view==='overview'?'รู้ทุกความเคลื่อนไหว วางแผนธุรกิจได้มั่นใจกว่าเดิม':'จัดการข้อมูลการเงินของคุณในที่เดียว'}</p></div><div className="heading-actions">{['overview','entries','cashbook','reports'].includes(view)&&<input aria-label="เดือนรายงาน" type="month" value={month} onChange={e=>Mo(e.target.value||today().slice(0,7))}/>} {view==='entries'&&<button className="primary" disabled={!loaded||busy} onClick={()=>open('entry')}><Plus size={18}/> เพิ่มรายการ</button>}</div></div>
+`}</style><header className="topbar"><div className="crumb"><button className="mobile-menu" aria-label="เปิดเมนู" onClick={()=>M(!mobile)}><Menu/></button><span>{s.business}</span><ChevronRight size={14}/><b>{nav.find(n=>n[0]===view)?.[1]}</b></div><div className="topbar-actions"><VoiceMenu access={access} disabled={!loaded||busy} onNavigate={menu=>{if(!canView(access,menu)||!leaveOpenForm())return false;V(menu);return true;}}/><div className="topbar-navigation" role="group" aria-label="การนำทาง"><button type="button" disabled={!loaded||busy||!previousView} onClick={goBack}><ArrowLeft size={17}/>ย้อนกลับ</button><button type="button" disabled={busy} onClick={refreshPage}><RotateCw size={17}/>รีเฟรช</button><button type="button" disabled={!loaded||busy||!homeView} onClick={goHome}><House size={17}/>หน้าหลัก</button></div><div className="status"><span/> {busy?'กำลังบันทึก…':loaded?'เชื่อมต่อแล้ว':'กำลังเชื่อมต่อ'}</div></div></header><main>{view==='overview'&&<>{loaded&&<SmartGreeting name={sidebarProfile.name||email} state={s} access={access} onNavigate={menu=>{V(menu);if(menu==='entries')Mo(today().slice(0,7));M(false)}}/>}<HeaderEnvironment/></>}<div className="page-heading"><div><div className="eyebrow">YOUR MONEY, CLEARLY.</div><h1>{view==='overview'?'ภาพรวมการเงิน':nav.find(n=>n[0]===view)?.[1]}</h1><p>{view==='overview'?'รู้ทุกความเคลื่อนไหว วางแผนธุรกิจได้มั่นใจกว่าเดิม':'จัดการข้อมูลการเงินของคุณในที่เดียว'}</p></div><div className="heading-actions">{['overview','entries','cashbook','reports'].includes(view)&&<input aria-label="เดือนรายงาน" type="month" value={month} onChange={e=>Mo(e.target.value||today().slice(0,7))}/>} {view==='entries'&&<button className="primary" disabled={!loaded||busy} onClick={()=>open('entry')}><Plus size={18}/> เพิ่มรายการ</button>}</div></div>
 {loaded&&!access.owner&&<div className="access-banner">{access.menus.length?(canEdit(access,view)?'สิทธิ์เมนูนี้: ดูและแก้ไขข้อมูล':'สิทธิ์เมนูนี้: ดูข้อมูลเท่านั้น'):'ยังไม่ได้รับสิทธิ์เมนู กรุณาติดต่อเจ้าของร้าน'}</div>}{error&&<div className="error" role="alert">{error} <button onClick={load}>โหลดข้อมูลใหม่</button></div>}{!loaded?<div className="card empty">กำลังโหลดข้อมูลบัญชี…</div>:<>
 {(view==='overview'||view==='reports')&&<><div className="stats"><div className="stat dark"><span>ยอดเงินคงเหลือทุกบัญชี <Wallet size={19}/></span><h2>฿ {money(total)}</h2><small>ยอดปัจจุบันรวมยอดยกมาและทุกรายการ</small></div><div className="stat"><span>รายรับสุทธิเดือนนี้ <i className="income"><ArrowDownLeft size={19}/></i></span><h2>฿ {money(inc)}</h2><small className="green">รับชำระแล้ว {period.filter(e=>e.type==='income').length} รายการ</small></div><div className="stat"><span>รายจ่ายสุทธิเดือนนี้ <i className="expense"><ArrowUpRight size={19}/></i></span><h2>฿ {money(exp)}</h2><small>จ่ายแล้ว {period.filter(e=>e.type==='expense').length} รายการ</small></div><div className="stat"><span>กระแสเงินสดสุทธิ <ChartNoAxesCombined size={19}/></span><h2 className={inc-exp>=0?'green':'red'}>฿ {money(inc-exp)}</h2><small>รายรับ − รายจ่ายในเดือนที่เลือก</small></div></div><div className="chart-grid"><section className="card"><div className="section-head"><div><h2>เส้นทางเงินของคุณ</h2><p>รายรับและรายจ่ายย้อนหลัง 6 เดือน</p></div><div className="legend"><span className="dot green-bg"/> รายรับ <span className="dot orange-bg"/> รายจ่าย</div></div><div className="chart">{Array.from({length:6},(_,i)=>{const d=new Date(month+'-01T12:00:00');d.setMonth(d.getMonth()-5+i);const m=d.toISOString().slice(0,7);const vals=['income','expense'].map(t=>s.entries.filter(e=>e.date.startsWith(m)&&e.type===t).reduce((n,e)=>n+netAmount(e),0));const max=Math.max(1,...Array.from({length:6},(_,j)=>{const dd=new Date(month+'-01T12:00:00');dd.setMonth(dd.getMonth()-5+j);return s.entries.filter(e=>e.date.startsWith(dd.toISOString().slice(0,7))).reduce((n,e)=>n+(e.type==='transfer'?0:e.amount),0)}));return <div className="bar-group" key={m}><div className="bars">{vals.map((v,j)=><div key={j} title={(j?'รายจ่าย ':'รายรับ ')+money(v)+' บาท'} style={{height:Math.max(v?3:0,v/max*100)+'%',background:j?'#f0af7e':'#16866a'}}/>)}</div><span>{d.toLocaleDateString('th-TH',{month:'short'})}</span></div>})}</div><div className="chart-note">{s.entries.length?'หน่วย: บาท • เลื่อนเมาส์บนแท่งเพื่อดูยอด':'เริ่มเพิ่มรายการ แล้วกราฟการเงินจะปรากฏที่นี่'}</div></section><section className="card"><div className="section-head"><div><h2>ใช้จ่ายไปกับอะไร</h2><p>สัดส่วนรายจ่ายตามหมวดหมู่</p></div></div>{expenseCats.length?<div className="category-list">{expenseCats.slice(0,5).map((x,i)=><div key={x.c}><div><span><i style={{background:['#16866a','#84b9a9','#f0af7e','#8b92c5','#b9cccd'][i]}}/>{x.c}</span><b>฿ {money(x.v)}</b></div><progress value={x.v} max={exp}/></div>)}</div>:<div className="category-empty"><div className="donut"><Wallet size={28}/></div><p>ยังไม่มีรายจ่ายในเดือนนี้</p><small>ติดตามสัดส่วนค่าใช้จ่ายได้จากตรงนี้</small></div>}</section></div></>}
 {view==='overview'&&<div className="mini-grid"><div className="mini-card"><span className="entry-icon income"><Users size={20}/></span><div><small>ลูกหนี้ค้างรับ</small><b>฿ {money(receivables)}</b></div><button onClick={()=>V('debts')} aria-label="ดูลูกหนี้"><ChevronRight size={18}/></button></div><div className="mini-card"><span className="entry-icon expense"><Users size={20}/></span><div><small>เจ้าหนี้ค้างจ่าย</small><b>฿ {money(payables)}</b></div><button onClick={()=>V('debts')} aria-label="ดูเจ้าหนี้"><ChevronRight size={18}/></button></div><div className="mini-card tip"><ShieldCheck size={26}/><div><b>เริ่มต้นอย่างเป็นระเบียบ</b><small>ตั้งยอดยกมาในบัญชี ก่อนเพิ่มรายการแรก</small></div></div></div>}
