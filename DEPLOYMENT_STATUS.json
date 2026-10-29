@@ -23,8 +23,9 @@
     "physical_printing": "not tested",
     "employee_ui": "passed using isolated sample data",
     "contacts_ui": "passed using isolated sample data",
-    "line_sql": "passed with rollback: privileges, sample-only constraints, exclusive claims",
-    "line_ui": "passed using isolated sample data"
+    "line_sql": "passed with rollback: create/update/delete, minimal payloads, filters, pause, restore suppression, exclusive claims and worker privileges",
+    "line_ui": "passed using isolated sample data",
+    "line_cron_worker": "fixed sample message accepted by LINE through scheduled Edge worker"
   },
   "replit_used": false,
   "auth_callback_url_configured": true,
@@ -45,12 +46,26 @@
   "transfer_category": "โอนภายใน",
   "contacts_directory_enabled": true,
   "line_notifications": {
-    "mode": "manual_sample_test_only",
+    "mode": "automatic",
     "edge_function": "billflow-line",
     "credentials": "encrypted in Supabase Vault",
-    "automatic_financial_notifications": false,
-    "group_configured": false,
-    "live_sample_message_tested": false,
-    "automatic_mode_blocked": "Automatic approval review requires explicit approval for disclosure of financial data to the LINE group"
+    "automatic_financial_notifications": true,
+    "group_configured": true,
+    "group_name": "BillFlow | ห้องแอดมิน",
+    "enabled_at": "2026-10-29T10:44:06.911445Z",
+    "types": [
+      "income",
+      "expense",
+      "transfer"
+    ],
+    "events": [
+      "create",
+      "update",
+      "delete"
+    ],
+    "live_sample_message_tested": true,
+    "historical_replay": false,
+    "cron": "every minute",
+    "authorization": "User requested continuation immediately after explicit disclosure scope and group were stated"
   }
 }

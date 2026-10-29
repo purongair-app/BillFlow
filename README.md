@@ -98,13 +98,17 @@ npm run build
 - เปิดจัดการระหว่างกรอกรายการโดยไม่เสียข้อมูลที่กรอกไว้ และคงชื่อในบัญชีเก่าเมื่อแก้ชื่อหรือปิดใช้งาน
 - ลบได้เฉพาะรายชื่อที่ยังไม่มีรายการอ้างอิง รายชื่อแยกตามบัญชี BillFlow และรวมอยู่ในไฟล์สำรอง JSON
 
-## LINE group test mode
+## LINE group notifications
 
 - Owner-only แจ้งเตือน LINE panel uses @191anfqj (PUROnGBillFlow).
-- Backend function billflow-line independently verifies owner JWT; LINE webhooks require raw-body HMAC signature. Platform JWT check is disabled solely for signed external webhooks; user actions still validate Auth getUser.
-- Channel access token and secret are stored encrypted in Vault via service-only functions. Browser responses and ledger backups never include them.
-- Pair a group using a single-use 16-hex command that expires after ten minutes. A pairing webhook only binds the group; it leaves financial alerts disabled.
-- Only manual fixed sample test messages are currently permitted by database constraints. No ledger trigger or cron job was installed. Preferences reject enabling financial alerts.
-- SQL rollback checks verified table/function permissions, test-only constraints and exclusive queue claims. UI and HMAC/template unit tests use isolated sample data.
-- `supabase/line-automation.pending.sql` is an unapplied design, not a migration to run. Automatic approval review blocked the automatic financial-transmission scope pending explicit user authorization. It must be adapted to the installed test schema and reviewed before any use.
-- LINE access was inspected through the official browser UI; original Webhook still pointed to Replit at inspection time. Never call that endpoint. This GitHub app does not use Replit.
+- Group paired: BillFlow | ห้องแอดมิน. Owner authorized automatic disclosure of transaction type, date, document number, description, amount and account names, then requested continuation. Alerts were enabled at 2026-10-29T10:44:06Z.
+- New, edited and deleted income/expense/internal-transfer records enqueue a notification after a successful ledger save. Existing history, first-ledger baselines and explicit backup restores are not replayed.
+- Each outbox message stores only the fields needed by the notification. It excludes customer/employee details, notes and receipts.
+- A cron worker runs each minute, authenticates with a Vault-held worker key and atomically claims up to five due messages. Failed sends retry with backoff, a stable LINE retry key and a bounded retry lifetime.
+- Owner can select transaction types or turn alerts off. Turning off cancels pending financial alerts. A group rebind leaves alerts off and cancels older queued messages.
+- Backend independently validates owner JWTs; incoming LINE events require raw-body HMAC. No service-role key, LINE token or channel secret is returned to the browser or ledger backup.
+- Channel credentials remain encrypted in Supabase Vault. Empty credential inputs after saving are intentional; the UI confirms that values are saved.
+- Applied SQL files: `supabase/line-notifications.sql` (original manual-test schema), then `supabase/line-automation.sql` (approved automatic notification extension). Do not rerun applied migrations.
+- Verification: 15 automated tests and production build pass; rollback tests cover add/edit/delete, minimal payloads, type selection, pause, restored-history suppression, exclusive queue claims and worker privileges. The cron + Edge worker sent a fixed sample message successfully to LINE. No test financial record persisted.
+- LINE API acceptance does not prove that every group member received or read a message. Delivery depends on LINE quota and group membership.
+- This GitHub application does not use Replit.
