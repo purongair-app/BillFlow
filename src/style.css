@@ -76,3 +76,7 @@
 @media screen and (max-width:800px){.app > .sidebar{width:min(280px,calc(100vw - 48px));padding-bottom:max(12px,env(safe-area-inset-bottom,0px))}.topbar .mobile-menu{min-width:44px;min-height:44px;flex-shrink:0}.topbar .crumb{flex-wrap:nowrap;gap:8px}.topbar .crumb > span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}.topbar .crumb > b{max-width:45%}}
 @media screen and (max-width:520px){.main > .topbar{padding:8px 12px;gap:6px}.topbar-navigation{gap:5px}.topbar-navigation button{min-width:0;padding:8px 6px;gap:5px;font-size:12px}.topbar-navigation button svg{width:16px;height:16px}.sidebar > .brand{margin-bottom:16px}.sidebar > .workspace{margin-bottom:16px}}
 @media screen and (max-width:360px){.topbar .crumb{font-size:10px}.topbar-navigation button{font-size:11px}}
+
+.payroll-import-review [aria-invalid="true"]{border:2px solid #dc2626!important;background:#fff1f2}
+.payroll-validation-summary:not(:empty){padding:16px;border:1px solid #dc2626;background:#fff1f2;color:#b91c1c;border-radius:10px;margin:16px 0}
+.payroll-validation-summary button{color:#b91c1c;text-align:left}
