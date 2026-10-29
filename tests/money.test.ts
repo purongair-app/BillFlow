@@ -141,3 +141,22 @@ test('menu visibility and editing stay separate and owner rights cannot be reduc
  validateMenuSelection(['people'],['people']);assert.throws(()=>validateMenuSelection(['settings'],[]));assert.throws(()=>validateMenuSelection(['entries'],['accounts']));
  assert.equal(canSaveChanges(staff,{contacts:[],entries:[]},{contacts:[{name:'พนักงาน'}],entries:[],audit:[{text:'edit'}]}),true);assert.equal(canSaveChanges(staff,{entries:[]},{entries:[{amount:100}]}),false);assert.equal(canSaveChanges(staff,{business:'ร้าน'},{business:'เปลี่ยนชื่อร้าน'}),false);assert.equal(canView({...staff,menus:[],editMenus:[]},'entries'),false);
 });
+
+import {type RecurringExpense,nextOccurrence,isOccurrence,validateRecurring,daysUntil} from '../src/recurring.ts';
+const recurring=(p:Partial<RecurringExpense>={}):RecurringExpense=>({id:'rent',title:'ค่าเช่าร้าน',frequency:'monthly',startDate:'2026-01-31',amount:800000,remindDays:[3,7,15,30],enabled:true,note:'',...p});
+test('recurring expenses clamp month-end without moving the original day or leap-day anchor',()=>{
+ const r=recurring();assert.equal(nextOccurrence(r,'2026-02-01'),'2026-02-28');assert.equal(nextOccurrence(r,'2026-03-01'),'2026-03-31');assert.equal(isOccurrence(r,'2026-03-28'),false);
+ const tax=recurring({frequency:'yearly',startDate:'2024-02-29'});assert.equal(nextOccurrence(tax,'2025-01-01'),'2025-02-28');assert.equal(nextOccurrence(tax,'2028-01-01'),'2028-02-29');
+ assert.equal(nextOccurrence(recurring({startDate:'2027-06-15'}),'2026-10-29'),'2027-06-15');
+});
+test('paid occurrence stops its reminders and the next monthly or yearly cycle still repeats',()=>{
+ const r=recurring({paidThrough:'2026-10-31'});assert.equal(isOccurrence(r,'2026-10-31'),false);assert.equal(nextOccurrence(r,'2026-10-29'),'2026-11-30');assert.equal(isOccurrence(r,'2026-11-30'),true);
+ assert.equal(nextOccurrence(recurring({frequency:'yearly',paidThrough:'2026-01-31'}),'2026-01-15'),'2027-01-31');assert.equal(daysUntil('2026-11-05','2026-10-29'),7);
+});
+test('recurring validation accepts unknown bill totals and rejects impossible dates and unsupported offsets',()=>{
+ validateRecurring([recurring({amount:0})]);for(const p of [{startDate:'2026-02-30'},{remindDays:[]},{remindDays:[1]},{remindDays:[7,7]},{amount:-1},{amount:1.5},{paidThrough:'bad'}])assert.throws(()=>validateRecurring([recurring(p)]));assert.throws(()=>validateRecurring([recurring(),recurring()]));
+ const s=initialState();s.recurringExpenses=[recurring()];validateState(s);assert.equal(s.entries.length,0);assert.equal(s.debts.length,0);
+});
+test('recurring reminders contain a clear estimated amount and due date, without posting transactions',()=>{
+ const q={id:'notice',action:'reminder',entry:{title:'ค่าไฟ\nรายการปลอม',amount:19260,due:'2026-11-05',days:7,frequency:'monthly'},business:'ร้านตัวอย่าง',accounts:[]};const text=notificationText(q);assert.match(text,/อีก 7 วัน/);assert.match(text,/ยอดประมาณ: 192.60 บาท/);assert.match(text,/ค่าไฟ รายการปลอม/);assert.match(text,/recurring=1/);assert.match(notificationText({...q,entry:{...q.entry,amount:0}}),/รอยอดบิลจริง/);assert.throws(()=>notificationText({...q,entry:{...q.entry,days:1}}));
+});
