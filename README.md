@@ -20,9 +20,12 @@
 เชื่อมโครงการ PUROnGAIR เดิม (`maxqjstknhwhymsugutz`) แล้ว โดยแยกตาราง `billflow_ledgers` และ bucket ส่วนตัว `billflow-receipts`
 บัญชีสมาชิกใช้ร่วมกับ PUROnGAIR; ข้อมูลการเงินและบิลแยกตามผู้ใช้
 อีเมลติดต่อเจ้าของ: airfriendnara@gmail.com
-ยังไม่ยืนยันผู้ส่ง SMTP จึงยังปิดการสมัครใหม่/ส่งอีเมล แต่เปิดให้บัญชีเดิมล็อกอินได้
+เปิดฟังก์ชันสมัครใหม่ ส่งอีเมลยืนยัน ลืมรหัสผ่าน และล็อกอินแล้ว
+ยืนยันการตั้งค่า Sender email address จากภาพเจ้าของว่าเป็น `airfriendnara@gmail.com` และเปิด custom SMTP อยู่
+เพิ่ม callback URL ของ BillFlow แล้ว โดยรักษา Site URL และ Redirect URL เดิมของ PUROnGAIR ครบ
+ยังไม่ได้ทดสอบส่งอีเมลถึงกล่องจดหมายจริง หรือทดสอบเข้าสู่ระบบด้วยรหัสผ่านผู้ใช้จริง
 ค่า URL และ publishable key ของโครงการที่อนุญาตอยู่ใน `src/config.ts`; ค่า build environment สามารถ override ได้
-ห้ามเปิด `VITE_AUTH_EMAIL_READY` จนทดสอบ SMTP และลิงก์ยืนยันกลับ BillFlow แล้ว
+`src/config.ts` เปิด `authEmailConfigured` แล้ว; ควรทดสอบการส่งถึงจริงก่อนขยายการใช้งาน
 ไม่มีข้อมูลการเงินตัวอย่างถูกใส่ให้ผู้ใช้จริง
 ไม่มีการใช้หรือเชื่อมต่อ Replit
 
@@ -35,7 +38,7 @@
    - เพิ่ม Redirect URL: `https://purongair-app.github.io/BillFlow/` โดยเก็บรายการเดิมไว้ครบ
 4. เปิด Email provider และ **Confirm email** ไม่ควรปิดการยืนยันอีเมล
 5. ตั้ง Authentication > Email > Custom SMTP ด้วยบัญชีผู้ส่งที่เจ้าของอนุญาต
-   - Sender name: BillFlow
+   - Sender name: คงชื่อเดิมที่ใช้ร่วมกับ PUROnGAIR
    - Sender email: `airfriendnara@gmail.com` หลังเจ้าของเชื่อม SMTP และยืนยันผู้ส่ง
    - ตั้ง host, port, username และ password ใน Supabase เท่านั้น
    - Gmail ต้องใช้ App Password ของบัญชีที่เจ้าของอนุญาต ไม่ใช้รหัสผ่าน Gmail ปกติ
@@ -45,7 +48,7 @@
    - `VITE_SUPABASE_URL`: Project URL
    - `VITE_SUPABASE_PUBLISHABLE_KEY`: publishable key (ห้ามใส่ service_role หรือ secret key)
    - `VITE_OWNER_EMAIL`: `airfriendnara@gmail.com`
-   - `VITE_AUTH_EMAIL_READY`: ตั้ง `true` หลังทดสอบ SMTP และ Redirect URL ครบเท่านั้น
+   - `VITE_AUTH_EMAIL_READY`: เปิดผ่านค่า `authEmailConfigured` ใน `src/config.ts` แล้ว
 8. Settings > Pages > Build and deployment > Source: **GitHub Actions**
 9. รัน workflow `Deploy BillFlow` หรือ push main
 10. ทดสอบสมัครด้วยอีเมลจริง ยืนยันอีเมล ล็อกอิน ลืมรหัสผ่าน บันทึกบัญชีจากสองอุปกรณ์ และทดสอบว่าผู้ใช้ B อ่านข้อมูล/ไฟล์ของผู้ใช้ A ไม่ได้
