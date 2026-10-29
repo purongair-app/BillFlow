@@ -12,7 +12,7 @@
     "Test signup confirmation delivery and password-reset delivery with a real user request"
   ],
   "verification": {
-    "client_financial_tests": 13,
+    "client_financial_tests": 15,
     "build": "passed",
     "database_rls": "passed with rollback",
     "concurrent_revision": "passed",
@@ -22,7 +22,9 @@
     "accounting_ui": "passed using isolated sample data",
     "physical_printing": "not tested",
     "employee_ui": "passed using isolated sample data",
-    "contacts_ui": "passed using isolated sample data"
+    "contacts_ui": "passed using isolated sample data",
+    "line_sql": "passed with rollback: privileges, sample-only constraints, exclusive claims",
+    "line_ui": "passed using isolated sample data"
   },
   "replit_used": false,
   "auth_callback_url_configured": true,
@@ -41,5 +43,14 @@
   ],
   "employee_directory_enabled": true,
   "transfer_category": "โอนภายใน",
-  "contacts_directory_enabled": true
+  "contacts_directory_enabled": true,
+  "line_notifications": {
+    "mode": "manual_sample_test_only",
+    "edge_function": "billflow-line",
+    "credentials": "encrypted in Supabase Vault",
+    "automatic_financial_notifications": false,
+    "group_configured": false,
+    "live_sample_message_tested": false,
+    "automatic_mode_blocked": "Automatic approval review requires explicit approval for disclosure of financial data to the LINE group"
+  }
 }

@@ -97,3 +97,14 @@ npm run build
 - เก็บรหัส ชื่อ และรายละเอียดเพิ่มเติมไว้เลือกใช้ภายหลัง หรือพิมพ์ชื่อเองได้
 - เปิดจัดการระหว่างกรอกรายการโดยไม่เสียข้อมูลที่กรอกไว้ และคงชื่อในบัญชีเก่าเมื่อแก้ชื่อหรือปิดใช้งาน
 - ลบได้เฉพาะรายชื่อที่ยังไม่มีรายการอ้างอิง รายชื่อแยกตามบัญชี BillFlow และรวมอยู่ในไฟล์สำรอง JSON
+
+## LINE group test mode
+
+- Owner-only แจ้งเตือน LINE panel uses @191anfqj (PUROnGBillFlow).
+- Backend function billflow-line independently verifies owner JWT; LINE webhooks require raw-body HMAC signature. Platform JWT check is disabled solely for signed external webhooks; user actions still validate Auth getUser.
+- Channel access token and secret are stored encrypted in Vault via service-only functions. Browser responses and ledger backups never include them.
+- Pair a group using a single-use 16-hex command that expires after ten minutes. A pairing webhook only binds the group; it leaves financial alerts disabled.
+- Only manual fixed sample test messages are currently permitted by database constraints. No ledger trigger or cron job was installed. Preferences reject enabling financial alerts.
+- SQL rollback checks verified table/function permissions, test-only constraints and exclusive queue claims. UI and HMAC/template unit tests use isolated sample data.
+- `supabase/line-automation.pending.sql` is an unapplied design, not a migration to run. Automatic approval review blocked the automatic financial-transmission scope pending explicit user authorization. It must be adapted to the installed test schema and reviewed before any use.
+- LINE access was inspected through the official browser UI; original Webhook still pointed to Replit at inspection time. Never call that endpoint. This GitHub app does not use Replit.
