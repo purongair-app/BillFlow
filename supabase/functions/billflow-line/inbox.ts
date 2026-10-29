@@ -10,8 +10,8 @@ export async function receiveImage(db:DB,event:any,group:string){
 }
 export async function processInbox(db:DB,config:()=>Promise<any>){
  const {data:rows,error}=await db.rpc('billflow_inbox_claim');if(error)throw Error('INBOX_CLAIM');
- for(const row of rows||[]){let fileId=row.file_id;try{
-  const c=await config();if(!c?.group_id||c.group_id!==row.group_id||row.owner!==OWNER){await db.from('billflow_line_inbox').update({status:'rejected',last_error:'กลุ่มปลายทางเปลี่ยน'}).eq('id',row.id);continue;}
+ await Promise.all((rows||[]).map(async(row:any)=>{let fileId=row.file_id;try{
+  const c=await config();if(!c?.group_id||c.group_id!==row.group_id||row.owner!==OWNER){await db.from('billflow_line_inbox').update({status:'rejected',last_error:'กลุ่มปลายทางเปลี่ยน'}).eq('id',row.id);return;}
   let bytes:Uint8Array,mime=row.mime;
   if(row.file_size){const {data,error}=await db.storage.from('billflow-receipts').download(OWNER+'/'+fileId);if(error)throw Error('FILE_DOWNLOAD');bytes=new Uint8Array(await data.arrayBuffer());}
   else{
@@ -21,14 +21,14 @@ export async function processInbox(db:DB,config:()=>Promise<any>){
    const reader=res.body!.getReader();const parts:Uint8Array[]=[];let size=0;while(true){const chunk=await reader.read();if(chunk.done)break;size+=chunk.value.length;if(size>5242880){await reader.cancel();throw Error('FILE_SIZE');}parts.push(chunk.value);}bytes=new Uint8Array(size);let offset=0;for(const part of parts){bytes.set(part,offset);offset+=part.length;}if(!bytes.length)throw Error('EMPTY_FILE');
    const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),v=>v.toString(16).padStart(2,'0')).join('');
    const {error:hashError}=await db.from('billflow_line_inbox').update({content_hash:hash}).eq('id',row.id).eq('status','processing');
-   if(hashError){if(hashError.code!=='23505')throw Error('HASH_SAVE');const {data:duplicate}=await db.from('billflow_line_inbox').select('id').eq('owner',OWNER).eq('content_hash',hash).maybeSingle();await db.from('billflow_line_inbox').update({status:'duplicate',duplicate_of:duplicate?.id,last_error:'รูปนี้เคยรับเข้าระบบแล้ว'}).eq('id',row.id).eq('status','processing');continue;}
+   if(hashError){if(hashError.code!=='23505')throw Error('HASH_SAVE');const {data:duplicate}=await db.from('billflow_line_inbox').select('id').eq('owner',OWNER).eq('content_hash',hash).maybeSingle();await db.from('billflow_line_inbox').update({status:'duplicate',duplicate_of:duplicate?.id,last_error:'รูปนี้เคยรับเข้าระบบแล้ว'}).eq('id',row.id).eq('status','processing');return;}
    const {error:uploadError}=await db.storage.from('billflow-receipts').upload(OWNER+'/'+fileId,bytes,{contentType:mime,upsert:true});if(uploadError)throw Error('FILE_SAVE');
-   const {data:saved,error:saveError}=await db.from('billflow_line_inbox').update({mime,file_size:bytes.length}).eq('id',row.id).eq('status','processing').select('id');if(saveError)throw Error('FILE_METADATA');if(!saved?.length){await db.storage.from('billflow-receipts').remove([OWNER+'/'+fileId]);continue;}
+   const {data:saved,error:saveError}=await db.from('billflow_line_inbox').update({mime,file_size:bytes.length}).eq('id',row.id).eq('status','processing').select('id');if(saveError)throw Error('FILE_METADATA');if(!saved?.length){await db.storage.from('billflow-receipts').remove([OWNER+'/'+fileId]);return;}
   }
-  const ai=await ocrConfig(db);if(!ai.key){await db.from('billflow_line_inbox').update({status:'needs_key',last_error:'ยังไม่ได้ตั้งค่า Gemini API key เปิดรูปและกรอกข้อมูลเพื่อตรวจยืนยันได้'}).eq('id',row.id).eq('status','processing');continue;}
+  const ai=await ocrConfig(db);if(!ai.key){await db.from('billflow_line_inbox').update({status:'needs_key',last_error:'ยังไม่ได้ตั้งค่า Gemini API key เปิดรูปและกรอกข้อมูลเพื่อตรวจยืนยันได้'}).eq('id',row.id).eq('status','processing');return;}
   const extracted=await extractDocument(ai.key,ai.model,bytes,mime);
   const {error:resultError}=await db.from('billflow_line_inbox').update({status:'ready',extracted,last_error:null,updated_at:new Date().toISOString()}).eq('id',row.id).eq('status','processing');if(resultError)throw Error('RESULT_SAVE');
- }catch(e){const code=e instanceof Error?e.message:'';const description=code==='FILE_SIZE'?'รูปเกิน 5 MB':code==='FILE_TYPE'?'รองรับรูป JPG, PNG, WEBP':code.startsWith('AI_')?'ตัวอ่าน AI ตอบกลับ '+code.slice(3)+' กรุณาตรวจ Key รุ่นโมเดลและโควตา':'รับหรืออ่านรูปไม่สำเร็จ กรุณาลองใหม่';await db.from('billflow_line_inbox').update({status:'failed',last_error:description,updated_at:new Date().toISOString()}).eq('id',row.id).eq('status','processing');}}
+ }catch(e){const code=e instanceof Error?e.message:'';const description=code==='AI_TIMEOUT'?'Gemini ใช้เวลาอ่านเกิน 90 วินาที กรุณาลองใหม่':code==='AI_NETWORK'?'เชื่อมต่อ Gemini ไม่สำเร็จ กรุณาลองใหม่':code==='AI_EMPTY'?'Gemini ไม่ส่งข้อมูลเอกสารกลับมา กรุณาลองใหม่':code==='AI_TRUNCATED'?'ผลอ่านจาก Gemini ยังไม่ครบ กรุณาลองใหม่':code==='AI_INVALID_JSON'||code==='AI_RESPONSE_JSON'?'ผลอ่านจาก Gemini ไม่อยู่ในรูปแบบที่ระบบรับได้ กรุณาลองใหม่':code==='FILE_SIZE'?'รูปเกิน 5 MB':code==='FILE_TYPE'?'รองรับรูป JPG, PNG, WEBP':code.startsWith('AI_')?'ตัวอ่าน AI ตอบกลับ '+code.slice(3)+' กรุณาตรวจ Key รุ่นโมเดลและโควตา':'รับหรืออ่านรูปไม่สำเร็จ กรุณาลองใหม่';await db.from('billflow_line_inbox').update({status:'failed',last_error:description,updated_at:new Date().toISOString()}).eq('id',row.id).eq('status','processing');}}));
  return {processed:rows?.length||0};
 }
 export async function inboxAction(db:DB,action:string,input:any){

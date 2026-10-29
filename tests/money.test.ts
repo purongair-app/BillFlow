@@ -128,3 +128,9 @@ test('API setup distinguishes key and model errors and does not restrict provide
  assert.throws(()=>parseOcrCredentials({key:key+' hidden space',model:'gemini-3.8-flash'}),/รูปแบบ API key/);
  assert.throws(()=>parseOcrCredentials({key,model:'gemini 3.8 flash'}),/ชื่อโมเดล/);
 });
+
+test('OCR separates provider timeouts and accepts final JSON without internal reasoning',async()=>{
+ await assert.rejects(extractDocument('qa-key','gemini-3.8-flash',new Uint8Array([1]),'image/jpeg',async()=>{throw new DOMException('Timed out','TimeoutError')}),/AI_TIMEOUT/);
+ const result=await extractDocument('qa-key','gemini-3.8-flash',new Uint8Array([1]),'image/jpeg',async()=>new Response(JSON.stringify({candidates:[{content:{parts:[{thought:true,text:'internal reasoning'},{text:'```json\n{"documentType":"invoice","amount":8200}\n```'}]}}]}),{status:200}));assert.equal(result.amount,820000);
+ await assert.rejects(extractDocument('qa-key','gemini-3.8-flash',new Uint8Array([1]),'image/jpeg',async()=>new Response(JSON.stringify({candidates:[{finishReason:'MAX_TOKENS'}]}),{status:200})),/AI_TRUNCATED/);
+});
