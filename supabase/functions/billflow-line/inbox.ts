@@ -1,6 +1,8 @@
+import {extractDocument} from './ocr.ts';
 type DB=any;
 const OWNER='978bc5a3-50bd-45e3-bef8-4aca3f5bfa44';
 const APP='https://purongair-app.github.io/BillFlow/?inbox=1';
+export async function ocrConfig(db:DB){const {data,error}=await db.rpc('billflow_ocr_config',{p_owner:OWNER});if(error)throw Error('OCR_CONFIG');return {key:data?.key||Deno.env.get('GEMINI_API_KEY')||'',model:data?.model||Deno.env.get('GEMINI_MODEL')||'gemini-3.8-flash'};}
 export async function receiveImage(db:DB,event:any,group:string){
  const message=String(event.message?.id||'');if(!/^\d{1,50}$/.test(message))return false;
  const {data,error}=await db.from('billflow_line_inbox').upsert({owner:OWNER,message_id:message,group_id:group},{onConflict:'owner,message_id',ignoreDuplicates:true}).select('id');
@@ -23,12 +25,18 @@ export async function processInbox(db:DB,config:()=>Promise<any>){
    const {error:uploadError}=await db.storage.from('billflow-receipts').upload(OWNER+'/'+fileId,bytes,{contentType:mime,upsert:true});if(uploadError)throw Error('FILE_SAVE');
    const {data:saved,error:saveError}=await db.from('billflow_line_inbox').update({mime,file_size:bytes.length}).eq('id',row.id).eq('status','processing').select('id');if(saveError)throw Error('FILE_METADATA');if(!saved?.length){await db.storage.from('billflow-receipts').remove([OWNER+'/'+fileId]);continue;}
   }
-  await db.from('billflow_line_inbox').update({status:'needs_key',last_error:'รับรูปแล้ว • การอ่าน AI ยังไม่เปิดใช้งาน เปิดรูปและกรอกข้อมูลเพื่อตรวจยืนยันได้'}).eq('id',row.id).eq('status','processing');
+  const ai=await ocrConfig(db);if(!ai.key){await db.from('billflow_line_inbox').update({status:'needs_key',last_error:'ยังไม่ได้ตั้งค่า Gemini API key เปิดรูปและกรอกข้อมูลเพื่อตรวจยืนยันได้'}).eq('id',row.id).eq('status','processing');continue;}
+  const extracted=await extractDocument(ai.key,ai.model,bytes,mime);
+  const {error:resultError}=await db.from('billflow_line_inbox').update({status:'ready',extracted,last_error:null,updated_at:new Date().toISOString()}).eq('id',row.id).eq('status','processing');if(resultError)throw Error('RESULT_SAVE');
  }catch(e){const code=e instanceof Error?e.message:'';const description=code==='FILE_SIZE'?'รูปเกิน 5 MB':code==='FILE_TYPE'?'รองรับรูป JPG, PNG, WEBP':code.startsWith('AI_')?'ตัวอ่าน AI ตอบกลับ '+code.slice(3)+' กรุณาตรวจ Key รุ่นโมเดลและโควตา':'รับหรืออ่านรูปไม่สำเร็จ กรุณาลองใหม่';await db.from('billflow_line_inbox').update({status:'failed',last_error:description,updated_at:new Date().toISOString()}).eq('id',row.id).eq('status','processing');}}
  return {processed:rows?.length||0};
 }
 export async function inboxAction(db:DB,action:string,input:any){
- if(action==='inbox'){const {data,error}=await db.from('billflow_line_inbox').select('id,file_id,mime,file_size,status,extracted,last_error,created_at,confirmed_target,duplicate_of').eq('owner',OWNER).order('created_at',{ascending:false}).limit(100);if(error)throw Error('INBOX_LIST');return {documents:data||[],ocrConfigured:false,model:'',ocrAwaitingConsent:true};}
+ if(action==='inbox'){const {data,error}=await db.from('billflow_line_inbox').select('id,file_id,mime,file_size,status,extracted,last_error,created_at,confirmed_target,duplicate_of').eq('owner',OWNER).order('created_at',{ascending:false}).limit(100);if(error)throw Error('INBOX_LIST');const ai=await ocrConfig(db);return {documents:data||[],ocrConfigured:!!ai.key,model:ai.model};}
+ if(action==='ocr-key'){const key=String(input.key||'').trim(),model=String(input.model||'gemini-3.8-flash');if(!/^[A-Za-z0-9_-]{20,200}$/.test(key)||!/^gemini-[a-z0-9.\-]{1,80}$/.test(model))return {error:'กรุณาตรวจ API key และชื่อโมเดล'};
+  const check=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(model),{headers:{'x-goog-api-key':key},signal:AbortSignal.timeout(10000)});if(!check.ok)return {error:'ตรวจ Key หรือโมเดลไม่ผ่าน ('+check.status+')'};
+  const {error}=await db.rpc('billflow_ocr_store',{p_owner:OWNER,p_key:key,p_model:model});if(error)throw Error('OCR_STORE');const reset=await db.from('billflow_line_inbox').update({status:'pending',attempts:0,last_error:null}).eq('owner',OWNER).eq('status','needs_key');if(reset.error)throw Error('OCR_REQUEUE');return {ok:true};
+ }
  if(['inbox-retry','inbox-reject'].includes(action)){if(!/^[a-f0-9-]{36}$/.test(String(input.id)))return {error:'เอกสารไม่ถูกต้อง'};const {error}=await db.from('billflow_line_inbox').update(action==='inbox-retry'?{status:'pending',attempts:0,last_error:null}:{status:'rejected'}).eq('owner',OWNER).eq('id',input.id).in('status',action==='inbox-retry'?['needs_key','failed']:['pending','ready','needs_key','failed']);if(error)throw Error('INBOX_UPDATE');return {ok:true};}
  return null;
 }

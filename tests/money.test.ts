@@ -108,3 +108,15 @@ test('slips require explicit direction when masked or ambiguous, and can partial
 test('OCR output is constrained, preserves unknowns, and treats amount as baht exactly once',()=>{
  const x=normalizeExtraction({documentType:'invoice',amount:8200,date:'2026-02-30',due:'2026-10-31',transactionTime:'99:99',senderAccount:'x'.repeat(100),warnings:['โปรดตรวจยอด']});assert.equal(x.amount,820000);assert.equal(x.date,'');assert.equal(x.due,'2026-10-31');assert.equal(x.transactionTime,'');assert.equal(x.senderAccount.length,50);assert.equal(normalizeExtraction({amount:'8200',documentType:'income'}).amount,null);assert.equal(normalizeExtraction({documentType:'income'}).documentType,'other');
 });
+
+import {extractDocument} from '../supabase/functions/billflow-line/ocr.ts';
+test('OCR request normalizes a returned invoice and propagates provider failures without recording payment',async()=>{
+ const fixtureFetch:typeof fetch=async (url,options)=>{
+  assert.match(String(url),/^https:\/\/generativelanguage.googleapis.com\/v1beta\/models\/gemini-/);
+  const body=JSON.parse(String(options?.body));assert.equal(body.contents[0].parts[1].inlineData.mimeType,'image/jpeg');assert.equal(body.contents[0].parts[1].inlineData.data,'AQID');
+  return new Response(JSON.stringify({candidates:[{content:{parts:[{text:JSON.stringify({documentType:'invoice',amount:8200,documentNo:'INV-691008',date:'2026-10-16',title:'งานล้างแอร์',contact:'ลูกค้าตัวอย่าง'})}]}}]}),{status:200});
+ };
+ const output=await extractDocument('test-key-only','gemini-3.8-flash',new Uint8Array([1,2,3]),'image/jpeg',fixtureFetch);assert.equal(output.documentType,'invoice');assert.equal(output.amount,820000);assert.equal(output.documentNo,'INV-691008');
+ await assert.rejects(extractDocument('test-key-only','gemini-3.8-flash',new Uint8Array([1]),'image/jpeg',async()=>new Response('{}',{status:429})),/AI_429/);
+ const s=initialState(),doc=inboxDocument({documentType:'slip',amount:10000,title:'ชำระเงิน',receiverName:'ชื่ออ่านผิด'}),f=suggestImport(s,doc);const result=importLineDocument(s,doc,{...f,type:'income',account:'bank',receiverName:'ชื่อที่ตรวจแล้ว'});assert.equal(result.state.entries[0].receiverName,'ชื่อที่ตรวจแล้ว');
+});
