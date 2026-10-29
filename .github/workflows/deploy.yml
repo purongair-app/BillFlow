@@ -27,6 +27,7 @@ jobs:
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
           VITE_OWNER_EMAIL: ${{ vars.VITE_OWNER_EMAIL }}
+          VITE_AUTH_EMAIL_READY: ${{ vars.VITE_AUTH_EMAIL_READY }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

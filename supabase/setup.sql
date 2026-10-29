@@ -1,4 +1,4 @@
--- Apply only to the selected BillFlow Supabase project.
+-- BillFlow uses project maxqjstknhwhymsugutz; all tables and objects are namespaced.
 -- All amounts inside payload are integer satang, not floating-point baht.
 begin;
 create table public.billflow_ledgers (
@@ -8,7 +8,7 @@ create table public.billflow_ledgers (
   updated_at timestamptz not null default now()
 );
 alter table public.billflow_ledgers enable row level security;
-revoke all on public.billflow_ledgers from anon;
+revoke all on public.billflow_ledgers from public, anon;
 grant select,insert,update on public.billflow_ledgers to authenticated;
 create policy billflow_read_own on public.billflow_ledgers for select to authenticated using ((select auth.uid())=owner);
 create policy billflow_create_own on public.billflow_ledgers for insert to authenticated with check ((select auth.uid())=owner);
@@ -52,4 +52,8 @@ grant execute on function public.billflow_save_ledger(jsonb,bigint) to authentic
 insert into storage.buckets(id,name,public,file_size_limit,allowed_mime_types) values('billflow-receipts','billflow-receipts',false,5242880,array['image/jpeg','image/png','image/webp','application/pdf']);
 create policy billflow_receipt_read on storage.objects for select to authenticated using (bucket_id='billflow-receipts' and (storage.foldername(name))[1]=(select auth.uid())::text);
 create policy billflow_receipt_upload on storage.objects for insert to authenticated with check(bucket_id='billflow-receipts' and (storage.foldername(name))[1]=(select auth.uid())::text);
+-- Existing Storage policies stay unchanged. This guard only scopes BillFlow files.
+create policy billflow_receipt_owner_guard on storage.objects as restrictive for all to anon, authenticated
+using (bucket_id <> 'billflow-receipts' or ((select auth.uid()) is not null and (storage.foldername(name))[1]=(select auth.uid())::text))
+with check (bucket_id <> 'billflow-receipts' or ((select auth.uid()) is not null and (storage.foldername(name))[1]=(select auth.uid())::text));
 commit;

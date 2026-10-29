@@ -1,8 +1,10 @@
 import {createClient} from '@supabase/supabase-js';
 import {initialState,validateState,type State} from './money';
-const url=import.meta.env.VITE_SUPABASE_URL||'';
-const key=import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY||'';
+import {connection} from './config';
+const url=import.meta.env.VITE_SUPABASE_URL||connection.url;
+const key=import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY||connection.publishableKey;
 export const configured=Boolean(url&&key);
+export const emailActionsReady=import.meta.env.VITE_AUTH_EMAIL_READY==='true'||connection.authEmailConfigured;
 export const ownerEmail=import.meta.env.VITE_OWNER_EMAIL||'airfriendnara@gmail.com';
 export const supabase=configured?createClient(url,key,{auth:{storageKey:'billflow-auth',autoRefreshToken:true,persistSession:true,detectSessionInUrl:true}}):null;
 export async function readLedger(){if(!supabase)throw Error('ระบบกำลังเตรียมเปิดใช้งาน');const {data:{user},error:authError}=await supabase.auth.getUser();if(authError||!user)throw Error('กรุณาเข้าสู่ระบบอีกครั้ง');const {data,error}=await supabase.from('billflow_ledgers').select('payload,revision').eq('owner',user.id).maybeSingle();if(error)throw Error('ยังโหลดบัญชีไม่ได้ กรุณาติดต่อเจ้าของระบบ');return {state:data?.payload||initialState(),revision:data?.revision||0,email:user.email||''};}

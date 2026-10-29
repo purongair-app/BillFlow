@@ -17,22 +17,26 @@
 
 ## สถานะ
 
-เตรียมโค้ดแล้ว แต่ยังไม่เชื่อมโครงการ Supabase และยังไม่ยืนยันผู้ส่ง SMTP
-ถ้าตัวแปรฐานข้อมูลยังว่าง เว็บจะแสดงหน้าเตรียมเปิดใช้งาน และปิดการสมัคร/ล็อกอิน
+เชื่อมโครงการ PUROnGAIR เดิม (`maxqjstknhwhymsugutz`) แล้ว โดยแยกตาราง `billflow_ledgers` และ bucket ส่วนตัว `billflow-receipts`
+บัญชีสมาชิกใช้ร่วมกับ PUROnGAIR; ข้อมูลการเงินและบิลแยกตามผู้ใช้
+อีเมลติดต่อเจ้าของ: airfriendnara@gmail.com
+ยังไม่ยืนยันผู้ส่ง SMTP จึงยังปิดการสมัครใหม่/ส่งอีเมล แต่เปิดให้บัญชีเดิมล็อกอินได้
+ค่า URL และ publishable key ของโครงการที่อนุญาตอยู่ใน `src/config.ts`; ค่า build environment สามารถ override ได้
+ห้ามเปิด `VITE_AUTH_EMAIL_READY` จนทดสอบ SMTP และลิงก์ยืนยันกลับ BillFlow แล้ว
 ไม่มีข้อมูลการเงินตัวอย่างถูกใส่ให้ผู้ใช้จริง
 ไม่มีการใช้หรือเชื่อมต่อ Replit
 
 ## ตั้งค่าเปิดใช้งานจริง
 
-1. เลือกโครงการ Supabase สำหรับ BillFlow (แนะนำแยกจากระบบอื่น)
-2. ตรวจตารางเดิม แล้วรัน `supabase/setup.sql` หนึ่งครั้งในโครงการที่เลือก
+1. ใช้โครงการ PUROnGAIR เดิมตามที่เจ้าของอนุญาตแล้ว
+2. ใช้ migration `billflow_initialize_private_ledgers_and_receipts` ที่นำขึ้นโครงการแล้ว — ห้ามรัน setup ซ้ำ
 3. ตั้ง Authentication > URL Configuration:
-   - Site URL: `https://purongair-app.github.io/BillFlow/`
-   - Redirect URL: `https://purongair-app.github.io/BillFlow/`
+   - รักษา Site URL ของ PUROnGAIR เดิม (ใช้โครงการ Auth ร่วมกัน)
+   - เพิ่ม Redirect URL: `https://purongair-app.github.io/BillFlow/` โดยเก็บรายการเดิมไว้ครบ
 4. เปิด Email provider และ **Confirm email** ไม่ควรปิดการยืนยันอีเมล
 5. ตั้ง Authentication > Email > Custom SMTP ด้วยบัญชีผู้ส่งที่เจ้าของอนุญาต
    - Sender name: BillFlow
-   - Sender email: อีเมลของเจ้าของที่ยืนยันแล้ว
+   - Sender email: `airfriendnara@gmail.com` หลังเจ้าของเชื่อม SMTP และยืนยันผู้ส่ง
    - ตั้ง host, port, username และ password ใน Supabase เท่านั้น
    - Gmail ต้องใช้ App Password ของบัญชีที่เจ้าของอนุญาต ไม่ใช้รหัสผ่าน Gmail ปกติ
    - Supabase SMTP เริ่มต้นไม่เหมาะสำหรับเปิดรับผู้ใช้ทั่วไป
@@ -40,7 +44,8 @@
 7. GitHub repository > Settings > Secrets and variables > Actions > Variables:
    - `VITE_SUPABASE_URL`: Project URL
    - `VITE_SUPABASE_PUBLISHABLE_KEY`: publishable key (ห้ามใส่ service_role หรือ secret key)
-   - `VITE_OWNER_EMAIL`: อีเมลเจ้าของที่ยืนยันแล้ว
+   - `VITE_OWNER_EMAIL`: `airfriendnara@gmail.com`
+   - `VITE_AUTH_EMAIL_READY`: ตั้ง `true` หลังทดสอบ SMTP และ Redirect URL ครบเท่านั้น
 8. Settings > Pages > Build and deployment > Source: **GitHub Actions**
 9. รัน workflow `Deploy BillFlow` หรือ push main
 10. ทดสอบสมัครด้วยอีเมลจริง ยืนยันอีเมล ล็อกอิน ลืมรหัสผ่าน บันทึกบัญชีจากสองอุปกรณ์ และทดสอบว่าผู้ใช้ B อ่านข้อมูล/ไฟล์ของผู้ใช้ A ไม่ได้

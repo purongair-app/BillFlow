@@ -1,0 +1,26 @@
+{
+  "project": "BillFlow",
+  "database_project": "maxqjstknhwhymsugutz",
+  "database_connected": true,
+  "shared_auth_with": "PUROnGAIR",
+  "ledger_table": "billflow_ledgers",
+  "receipts_bucket": "billflow-receipts",
+  "owner_contact_email": "airfriendnara@gmail.com",
+  "existing_email_login_enabled": true,
+  "new_signup_enabled": false,
+  "auth_email_sender_verified": false,
+  "remaining_setup": [
+    "Configure and verify owner SMTP sender without sharing credentials in chat",
+    "Append BillFlow callback URL while preserving existing Auth redirects",
+    "Test signup and password reset email deliveries before enabling VITE_AUTH_EMAIL_READY"
+  ],
+  "verification": {
+    "client_financial_tests": 4,
+    "build": "passed",
+    "database_rls": "passed with rollback",
+    "concurrent_revision": "passed",
+    "anonymous_access": "denied",
+    "new_records_after_tests": 0
+  },
+  "replit_used": false
+}
