@@ -11,3 +11,9 @@ export function validateMenuSelection(menus:string[],edit:string[]){if(new Set(m
 export function canSaveChanges(access:Access,previous:Record<string,unknown>,next:Record<string,unknown>){if(access.owner)return true;const rights:Record<string,string>={accounts:'accounts',accountHolders:'accounts',entries:'entries',debts:'debts',documentSources:'debts',contacts:'people',employees:'people',budgets:'budgets',recurringExpenses:'budgets',recurringExpenseNames:'budgets'};return Object.keys({...previous,...next}).filter(k=>k!=='audit').every(k=>JSON.stringify(previous[k]??[])===JSON.stringify(next[k]??[])||!!rights[k]&&canEdit(access,rights[k]));}
 
 export type Applicant={id:string,email:string,name:string,registeredAt:string,confirmed:boolean};
+
+export function standardRolePermissions(role:MemberRole):{menus:string[],editMenus:string[]}{
+ if(role==='manager')return {menus:menuOptions.map(([id])=>id),editMenus:[...editableMenus]};
+ if(role==='shop_admin')return {menus:['overview','entries','cashbook','people','debts','reports'],editMenus:['entries','people','debts']};
+ return {menus:['entries'],editMenus:['entries']};
+}

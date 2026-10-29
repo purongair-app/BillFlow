@@ -10,7 +10,7 @@ export const emailActionsReady=import.meta.env.VITE_AUTH_EMAIL_READY==='true'||c
 export const ownerEmail=import.meta.env.VITE_OWNER_EMAIL||'airfriendnara@gmail.com';
 export const supabase=configured?createClient(url,key,{auth:{storageKey:'billflow-auth',autoRefreshToken:true,persistSession:true,detectSessionInUrl:true}}):null;
 let activeAccess:Access|null=null;
-export async function readLedger(){if(!supabase)throw Error('ระบบกำลังเตรียมเปิดใช้งาน');const {data:{user},error:authError}=await supabase.auth.getUser();if(authError||!user)throw Error('กรุณาเข้าสู่ระบบอีกครั้ง');const {data,error}=await supabase.rpc('billflow_access_context');if(error)throw Error('โหลดสิทธิ์และข้อมูลบัญชีไม่สำเร็จ กรุณาลองใหม่');activeAccess=data.access;return {state:(data.payload||initialState()) as State,revision:data.revision as number,email:user.email||'',access:data.access as Access};}
+export async function readLedger(){if(!supabase)throw Error('ระบบกำลังเตรียมเปิดใช้งาน');const {data:{user},error:authError}=await supabase.auth.getUser();if(authError||!user)throw Error('กรุณาเข้าสู่ระบบอีกครั้ง');const {data,error}=await supabase.rpc('billflow_access_context');if(error)throw Error('โหลดสิทธิ์และข้อมูลบัญชีไม่สำเร็จ กรุณาลองใหม่');activeAccess=data.access;return {state:(data.payload||initialState()) as State,revision:data.revision as number,email:user.email||'',userId:user.id,access:data.access as Access};}
 export async function readAccess(){const {data,error}=await supabase!.rpc('billflow_access_only');if(error)throw Error('ตรวจสิทธิ์ไม่สำเร็จ');activeAccess=data;return data as Access;}
 export async function listMembers(){const {data,error}=await supabase!.rpc('billflow_manage_members_v2',{p_action:'list'});if(error)throw Error('เฉพาะเจ้าของเท่านั้นที่ดูสิทธิ์ได้');return data as Member[];}
 export async function saveMember(m:{email:string,name:string,menus:string[],editMenus:string[],enabled:boolean,role:MemberRole}){const {data,error}=await supabase!.rpc('billflow_manage_members_v2',{p_action:'save',p_email:m.email,p_name:m.name,p_menus:m.menus,p_edit:m.editMenus,p_enabled:m.enabled,p_role:m.role});if(error){if(error.message.includes('ACCOUNT_NOT_FOUND'))throw Error('ไม่พบบัญชีอีเมลที่ยืนยันแล้ว กรุณาให้พนักงานสมัครและยืนยันอีเมลก่อน');if(error.message.includes('CANNOT_CHANGE_OWNER'))throw Error('เจ้าของมีสิทธิ์ครบเสมอ ไม่สามารถลดสิทธิ์เจ้าของได้');throw Error('บันทึกสิทธิ์ไม่สำเร็จ กรุณาตรวจอีเมล ชื่อ และเมนู');}return data as Member[];}
@@ -26,3 +26,15 @@ export async function confirmLineDocument(state:State,revision:number,id:string,
 }
 
 export async function listApplicants(){const {data,error}=await supabase!.rpc('billflow_list_applicants');if(error)throw Error('โหลดผู้สมัครรอกำหนดสิทธิ์ไม่สำเร็จ กรุณาลองใหม่');return data as Applicant[];}
+
+export type SidebarProfile={name?:string,photo?:string};
+export async function readProfile():Promise<SidebarProfile>{const {data,error}=await supabase!.rpc('billflow_my_profile');if(error)throw Error('โหลดรูปบัญชีไม่สำเร็จ');return data||{};}
+
+export type LinkableAccount={id:string,email:string,name:string,confirmed:boolean};
+export async function listLinkableAccounts():Promise<LinkableAccount[]>{
+ const {data:{user},error}=await supabase!.auth.getUser();if(error||!user)throw Error('กรุณาเข้าสู่ระบบ');
+ const own:LinkableAccount={id:user.id,email:user.email||'',name:user.user_metadata?.full_name||'',confirmed:!!user.email_confirmed_at};
+ if(!activeAccess?.owner)return [own];
+ const [members,applicants]=await Promise.all([listMembers(),listApplicants()]);
+ return [own,...members.map(m=>({id:m.id,email:m.email,name:m.name,confirmed:true})),...applicants];
+}

@@ -173,3 +173,23 @@ test('repeat checkbox preserves legacy monthly/yearly schedules and limits unche
  assert.throws(()=>validateRecurring([{...single,repeat:'yes'}]));
  const text=notificationText({id:'single',action:'reminder',entry:{title:'ทดสอบ',amount:0,due:'2026-11-05',days:7,frequency:'monthly',schedule:single},business:'',accounts:[]});assert.match(text,/ครั้งเดียว/);
 });
+
+test('employee photo and login account survive edits and reject duplicate links without changing permissions',()=>{
+ const userId='11111111-1111-4111-8111-111111111111';const photo='data:image/jpeg;base64,/9j/';
+ let s=savePerson(initialState(),{kind:'employee',code:'EMP001',name:'สมชาย',details:'ช่าง',loginEmail:'WORKER@example.com',userId,photo});
+ const person=people(s).find(p=>p.kind==='employee')!;assert.equal(person.loginEmail,'worker@example.com');assert.equal(person.userId,userId);assert.equal(person.photo,photo);
+ s=savePerson(s,{kind:'employee',code:person.code,name:'ชื่อใหม่',details:'หัวหน้าช่าง'},person);assert.equal(s.employees![0].photo,photo);assert.equal(s.employees![0].userId,userId);
+ assert.throws(()=>savePerson(s,{kind:'employee',code:'EMP002',name:'ชื่อซ้ำ',details:'',loginEmail:'worker@example.com'}));
+ assert.throws(()=>savePerson(s,{kind:'employee',code:'EMP002',name:'อีกคน',details:'',userId}));
+ assert.throws(()=>savePerson(s,{kind:'employee',code:'EMP002',name:'อีเมลผิด',details:'',loginEmail:'invalid'}));
+ assert.throws(()=>savePerson(s,{kind:'employee',code:'EMP002',name:'รูปผิด',details:'',photo:'data:image/svg+xml;base64,PHN2Zz4='}));
+ const edited=people(s).find(p=>p.kind==='employee')!;s=savePerson(s,{kind:'employee',code:edited.code,name:edited.name,details:edited.details,loginEmail:'',userId:'',photo:''},edited);assert.equal(s.employees![0].photo,undefined);assert.equal(s.employees![0].userId,undefined);assert.equal(s.employees![0].loginEmail,undefined);
+});
+
+import {standardRolePermissions} from '../src/permissions.ts';
+test('standard roles provide bounded menu defaults with independent editable copies',()=>{
+ const employee=standardRolePermissions('employee');assert.deepEqual(employee,{menus:['entries'],editMenus:['entries']});
+ const admin=standardRolePermissions('shop_admin');assert.ok(admin.editMenus.includes('people'));assert.ok(!admin.editMenus.includes('accounts'));
+ for(const role of ['manager','shop_admin','employee'] as const){const preset=standardRolePermissions(role);validateMenuSelection(preset.menus,preset.editMenus);assert.ok(!preset.menus.some(x=>['permissions','settings','line','inbox'].includes(x)));}
+ const manager=standardRolePermissions('manager');manager.menus.length=0;assert.ok(standardRolePermissions('manager').menus.length>0);assert.ok(standardRolePermissions('manager').editMenus.includes('accounts'));
+});
