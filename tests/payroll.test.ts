@@ -10,3 +10,21 @@ test('partial payments debit salary liability once, update cash and retain the o
 test('overpayment, missing or changed cash entry, duplicate period and paid drafts are rejected',()=>{for(const mode of ['over','missing','tamper','duplicate','draft']){const {s,p}=setup(),x=payment('a',mode==='over'?2125001:500000);p.payments=[x];s.entries=[payrollPaymentEntry(p,x)];if(mode==='missing')s.entries=[];if(mode==='tamper')s.entries[0].amount++;if(mode==='duplicate')s.payroll!.push({...structuredClone(p),id:'second'});if(mode==='draft')p.status='draft';assert.throws(()=>validateState(s));}});
 test('approved wages and old payments stay immutable, while a refund and cancellation reverse accounting',()=>{const {s,p}=setup(),x=payment('a',500000);p.payments=[x];s.entries=[payrollPaymentEntry(p,x)];const wrong=structuredClone(s);wrong.payroll![0].rate++;assert.throws(()=>validatePayrollChange(s,wrong));const n=structuredClone(s),q=n.payroll![0];q.payments[0]={...x,voidDate:'2026-11-01',voidReason:'โอนผิดและรับคืนแล้ว'};n.entries.push(payrollPaymentEntry(q,q.payments[0],true));validateState(n);validatePayrollChange(s,n);assert.equal(balance(n,'bank'),0);q.status='cancelled';q.cancelDate='2026-11-01';q.cancelReason='ยกเลิกรอบ';validateState(n);assert.equal(profitAndLoss(n,'2026-10-01','2026-11-30').expense,0);assert.equal(trialBalance(n,'2026-11-30').find(a=>a.code==='219000')!.net,0);const dropped=structuredClone(n);dropped.payroll=[];assert.throws(()=>validatePayrollChange(n,dropped));});
 test('daily wages round once to satang and reject invalid units or deductions beyond wages',()=>{const {s,p}=setup();p.basis='daily';p.units=22.5;p.rate=50000;assert.equal(grossPay(p),1425000);validateState(s);p.units=NaN;assert.throws(()=>validateState(s));p.units=22.5;p.deductions[0].amount=999999999;assert.throws(()=>validateState(s));});
+
+import {employeeSocial,totalSocial,monthlySocialContributions} from '../src/payrollSocial.ts';
+test('social contribution report combines all approved periods by employee and separates both contributions',()=>{
+ const {p}=setup();const first={...p,id:'first',periodEnd:'2026-10-15',employerSocial:12345,deductions:[{kind:'social' as const,name:'ส่วนที่หนึ่ง',amount:10001},{kind:'social' as const,name:'ส่วนที่สอง',amount:2344},{kind:'tax' as const,name:'ประกันสังคม (ชื่อผิดประเภท)',amount:99999}]};
+ const second={...p,id:'second',employeeCode:'EMP-NEW',employeeName:'ชื่อใหม่',periodStart:'2026-10-16',employerSocial:20000,deductions:[{kind:'social' as const,name:'ประกันสังคม',amount:20000}]};
+ const other={...p,id:'other',employeeId:'emp2',employeeCode:'EMP002',employeeName:'อีกคน',employerSocial:5000,deductions:[{kind:'social' as const,name:'ประกันสังคม',amount:6000}]};
+ const summary=monthlySocialContributions([second,other,first,{...p,id:'draft',status:'draft'},{...p,id:'cancelled',status:'cancelled'},{...p,id:'november',periodEnd:'2026-11-30'}],'2026-10');
+ assert.equal(employeeSocial(first),12345);assert.equal(totalSocial(first),24690);assert.equal(summary.rows.length,2);
+ const row=summary.rows.find(r=>r.employeeId==='emp')!;assert.equal(row.periods,2);assert.equal(row.employeeCode,'EMP-NEW');assert.equal(row.employeeName,'ชื่อใหม่');assert.equal(row.employee,32345);assert.equal(row.employer,32345);assert.equal(row.total,64690);
+ assert.equal(summary.employee,38345);assert.equal(summary.employer,37345);assert.equal(summary.total,75690);
+ assert.equal(first.earnings.length,p.earnings.length);assert.equal(netPay(first),grossPay(first)-112344);
+});
+test('salary partial payments do not change social liability and empty months have zero totals',()=>{
+ const {p}=setup();const paid={...p,payments:[{id:'part',date:'2026-10-31',amount:100000,account:'bank',method:'bank' as const,reference:'',note:''}]};
+ assert.deepEqual(monthlySocialContributions([p],'2026-10'),monthlySocialContributions([paid],'2026-10'));
+ assert.deepEqual(monthlySocialContributions([p],'2026-09'),{rows:[],employee:0,employer:0,total:0});
+ const noEmployeeDeduction={...p,deductions:[],employerSocial:10000};assert.equal(totalSocial(noEmployeeDeduction),10000);assert.equal(monthlySocialContributions([noEmployeeDeduction],'2026-10').employee,0);
+});
