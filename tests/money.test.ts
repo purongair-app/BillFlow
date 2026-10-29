@@ -134,3 +134,10 @@ test('OCR separates provider timeouts and accepts final JSON without internal re
  const result=await extractDocument('qa-key','gemini-3.8-flash',new Uint8Array([1]),'image/jpeg',async()=>new Response(JSON.stringify({candidates:[{content:{parts:[{thought:true,text:'internal reasoning'},{text:'```json\n{"documentType":"invoice","amount":8200}\n```'}]}}]}),{status:200}));assert.equal(result.amount,820000);
  await assert.rejects(extractDocument('qa-key','gemini-3.8-flash',new Uint8Array([1]),'image/jpeg',async()=>new Response(JSON.stringify({candidates:[{finishReason:'MAX_TOKENS'}]}),{status:200})),/AI_TRUNCATED/);
 });
+
+import {canView,canEdit,canSaveChanges,validateMenuSelection,type Access} from '../src/permissions.ts';
+test('menu visibility and editing stay separate and owner rights cannot be reduced',()=>{
+ const staff:Access={owner:false,workspaceOwner:'shop',menus:['people','entries'],editMenus:['people']};assert.equal(canView(staff,'people'),true);assert.equal(canView(staff,'permissions'),false);assert.equal(canEdit(staff,'entries'),false);assert.equal(canEdit(staff,'people'),true);assert.equal(canView({...staff,owner:true,menus:[]},'settings'),true);
+ validateMenuSelection(['people'],['people']);assert.throws(()=>validateMenuSelection(['settings'],[]));assert.throws(()=>validateMenuSelection(['entries'],['accounts']));
+ assert.equal(canSaveChanges(staff,{contacts:[],entries:[]},{contacts:[{name:'พนักงาน'}],entries:[],audit:[{text:'edit'}]}),true);assert.equal(canSaveChanges(staff,{entries:[]},{entries:[{amount:100}]}),false);assert.equal(canSaveChanges(staff,{business:'ร้าน'},{business:'เปลี่ยนชื่อร้าน'}),false);assert.equal(canView({...staff,menus:[],editMenus:[]},'entries'),false);
+});

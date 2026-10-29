@@ -1,0 +1,9 @@
+# Per-user menu permissions
+
+The owner configures a registered, email-confirmed employee account by email in **สิทธิ์ผู้ใช้งาน**. View and edit selections are separate; edit requires the corresponding view permission. The owner retains all menus. LINE, document inbox, API credentials, application settings and permission management remain owner-only. No employee grants are created automatically.
+
+This change preserves per-account ledgers and receipt folders. It does not share the owner's financial records with employees. Automatic approval review rejected the initially prepared shared-workspace/storage expansion because it exceeded the explicit menu-visibility request. The shipped migration leaves existing ledger RLS and Storage policies unchanged.
+
+The app obtains menu configuration from authenticated RPCs, selects an allowed landing page, checks permissions before opening edit forms, and rechecks on focus and every 30 seconds. Member administration requires the configured owner's auth UID. Save RPCs merge only editable collections into the caller's own ledger and use optimistic revision checks; supporting data for hidden menus is preserved. A people-only projection omits financial records. Financial screens receive the supporting transactions, accounts and debts needed for calculations. Legacy direct access remains limited to each user's own records by existing RLS.
+
+Validation: 32 unit checks, TypeScript/production build, and rolled-back database checks for employee projection, permitted save, forbidden writes, owner administration, revocation, owner rights and unchanged owner-ledger revision. No financial or permission test fixtures persist. The security advisor reports no newly introduced warnings for this feature. Browser QA remains unavailable in the current managed preview environment.
