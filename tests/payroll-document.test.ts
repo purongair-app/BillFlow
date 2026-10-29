@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {normalizeExtraction} from '../supabase/functions/billflow-line/ocr.payroll.pending.ts';
+import {normalizeExtraction} from '../supabase/functions/billflow-line/ocr.ts';
 import {initialState,validateState} from '../src/money.ts';
 import {grossPay,netPay,totalDeductions} from '../src/payroll.ts';
 import {thaiBaht,validatePayrollLine} from '../src/payrollDocument.ts';

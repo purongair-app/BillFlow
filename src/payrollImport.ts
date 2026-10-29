@@ -1,4 +1,4 @@
-import type {PayrollExtracted} from '../supabase/functions/billflow-line/ocr.payroll.pending.ts';
+import type {PayrollExtracted} from '../supabase/functions/billflow-line/ocr.ts';
 import type {LineDocument} from './lineDocuments.ts';
 import {type State,validateState,today} from './money.ts';
 import {type PayrollSlip,type PayrollLine,type PayrollDeduction,grossPay,totalDeductions,netPay,deductionLabels} from './payroll.ts';
