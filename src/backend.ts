@@ -1,0 +1,12 @@
+import {createClient} from '@supabase/supabase-js';
+import {initialState,validateState,type State} from './money';
+const url=import.meta.env.VITE_SUPABASE_URL||'';
+const key=import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY||'';
+export const configured=Boolean(url&&key);
+export const ownerEmail=import.meta.env.VITE_OWNER_EMAIL||'';
+export const supabase=configured?createClient(url,key,{auth:{storageKey:'billflow-auth',autoRefreshToken:true,persistSession:true,detectSessionInUrl:true}}):null;
+export async function readLedger(){if(!supabase)throw Error('ระบบกำลังเตรียมเปิดใช้งาน');const {data:{user},error:authError}=await supabase.auth.getUser();if(authError||!user)throw Error('กรุณาเข้าสู่ระบบอีกครั้ง');const {data,error}=await supabase.from('billflow_ledgers').select('payload,revision').eq('owner',user.id).maybeSingle();if(error)throw Error('ยังโหลดบัญชีไม่ได้ กรุณาติดต่อเจ้าของระบบ');return {state:data?.payload||initialState(),revision:data?.revision||0,email:user.email||''};}
+export async function writeLedger(state:State,revision:number){validateState(state);const {data,error}=await supabase!.rpc('billflow_save_ledger',{new_payload:state,expected_revision:revision});if(error){if(error.message.includes('CONFLICT'))throw Error('ข้อมูลเปลี่ยนจากอุปกรณ์อื่น กรุณาโหลดข้อมูลใหม่ก่อนบันทึก');throw Error('บันทึกข้อมูลไม่ได้ กรุณาลองใหม่หรือติดต่อเจ้าของระบบ');}return {revision:data as number};}
+export async function uploadFile(file:File){if(!supabase)throw Error('กรุณาเข้าสู่ระบบ');if(file.size>5*1024*1024||!['image/jpeg','image/png','image/webp','application/pdf'].includes(file.type))throw Error('รองรับ JPG, PNG, WEBP, PDF ขนาดไม่เกิน 5 MB');const {data:{user}}=await supabase.auth.getUser();if(!user)throw Error('กรุณาเข้าสู่ระบบ');const id=crypto.randomUUID();const {error}=await supabase.storage.from('billflow-receipts').upload(user.id+'/'+id,file,{contentType:file.type,upsert:false});if(error)throw Error('แนบเอกสารไม่สำเร็จ กรุณาลองใหม่');return {id,name:file.name};}
+export async function fileUrl(id:string){const {data:{user}}=await supabase!.auth.getUser();if(!user)throw Error('กรุณาเข้าสู่ระบบ');const {data,error}=await supabase!.storage.from('billflow-receipts').createSignedUrl(user.id+'/'+id,60);if(error)throw Error('เปิดเอกสารไม่สำเร็จ');return data.signedUrl;}
+export async function signOut(){const {error}=await supabase!.auth.signOut();if(error)throw Error('ออกจากระบบไม่สำเร็จ กรุณาลองอีกครั้ง');}
