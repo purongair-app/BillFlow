@@ -14,3 +14,8 @@ export async function uploadFile(file:File){if(!supabase)throw Error('กรุ�
 export async function fileUrl(id:string){const {data:{user}}=await supabase!.auth.getUser();if(!user)throw Error('กรุณาเข้าสู่ระบบ');const {data,error}=await supabase!.storage.from('billflow-receipts').createSignedUrl(user.id+'/'+id,300);if(error)throw Error('เปิดเอกสารไม่สำเร็จ');return data.signedUrl;}
 export async function signOut(){const {error}=await supabase!.auth.signOut();if(error)throw Error('ออกจากระบบไม่สำเร็จ กรุณาลองอีกครั้ง');}
 export async function lineRequest(action:string,body:Record<string,unknown>={}){if(!supabase)throw Error('กรุณาเข้าสู่ระบบ');const {data,error}=await supabase.functions.invoke('billflow-line',{body:{...body,action}});if(error){let message='เชื่อมการแจ้งเตือน LINE ไม่สำเร็จ กรุณาลองใหม่';try{const j=await error.context?.json();if(j?.error)message=j.error;}catch{}throw Error(message);}if(data?.error)throw Error(data.error);return data;}
+
+export async function confirmLineDocument(state:State,revision:number,id:string,target:string){
+ validateState(state);const {data,error}=await supabase!.rpc('billflow_confirm_inbox',{p_id:id,p_target:target,new_payload:state,expected_revision:revision});
+ if(error){if(error.message.includes('CONFLICT'))throw Error('ข้อมูลเปลี่ยนจากอุปกรณ์อื่น กรุณาโหลดหน้าใหม่ก่อนยืนยัน');if(error.message.includes('DRAFT_NOT_AVAILABLE')||error.message.includes('ALREADY_IMPORTED'))throw Error('เอกสารนี้ถูกยืนยันหรือเปลี่ยนสถานะแล้ว กรุณาโหลดใหม่');throw Error('ยืนยันเอกสารไม่สำเร็จ กรุณาตรวจสอบแล้วลองอีกครั้ง');}return {revision:data as number};
+}

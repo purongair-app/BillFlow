@@ -18,3 +18,5 @@
 .receipt-draft{display:grid;gap:8px;background:#f5f8f6;padding:12px;border-radius:10px}.receipt-draft img{max-width:100%;max-height:360px;object-fit:contain;margin:auto}.receipt-draft small{color:#6b7d74}
 
 .account-delete{margin-top:16px;display:grid;gap:8px}.account-delete button{justify-content:center}.account-delete small{font-size:11px;line-height:1.6;color:#78857f}.account-delete .danger,.modal-actions .danger{color:#b44338;border-color:#e4bbb5}.account-delete button:disabled{opacity:.55;cursor:not-allowed}.bank-account summary{min-height:42px}.bank-account form label{line-height:1.7}
+
+.line-document-modal{width:min(850px,calc(100vw - 20px));max-width:850px}.line-document-modal .employee-form{display:grid;gap:14px}.line-document-modal .receipt-image{max-height:500px}.line-settings td small{display:block;white-space:normal;max-width:320px;line-height:1.6}.line-settings td button{margin:3px}.line-settings details summary{cursor:pointer;font-weight:600}
