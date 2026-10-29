@@ -193,3 +193,6 @@ test('standard roles provide bounded menu defaults with independent editable cop
  for(const role of ['manager','shop_admin','employee'] as const){const preset=standardRolePermissions(role);validateMenuSelection(preset.menus,preset.editMenus);assert.ok(!preset.menus.some(x=>['permissions','settings','line','inbox'].includes(x)));}
  const manager=standardRolePermissions('manager');manager.menus.length=0;assert.ok(standardRolePermissions('manager').menus.length>0);assert.ok(standardRolePermissions('manager').editMenus.includes('accounts'));
 });
+
+import {canConfirmReset,resetPhrase} from '../src/reset.ts';
+test('system reset requires an email OTP and the exact confirmation phrase',()=>{assert.equal(canConfirmReset('123456',resetPhrase),true);assert.equal(canConfirmReset('',resetPhrase),false);assert.equal(canConfirmReset('12345',resetPhrase),false);assert.equal(canConfirmReset('12345x',resetPhrase),false);assert.equal(canConfirmReset('123456','ล้างข้อมูล'),false);assert.equal(canConfirmReset('123456',resetPhrase+' '),false);});

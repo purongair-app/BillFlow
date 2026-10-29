@@ -1,3 +1,4 @@
+import {resetErrors} from './reset';
 import type {Access,Member,MemberRole,Applicant} from './permissions';
 import {createClient} from '@supabase/supabase-js';
 import {initialState,validateState,type State} from './money';
@@ -7,7 +8,6 @@ const url=import.meta.env.VITE_SUPABASE_URL||connection.url;
 const key=import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY||connection.publishableKey;
 export const configured=Boolean(url&&key);
 export const emailActionsReady=import.meta.env.VITE_AUTH_EMAIL_READY==='true'||connection.authEmailConfigured;
-export const ownerEmail=import.meta.env.VITE_OWNER_EMAIL||'airfriendnara@gmail.com';
 export const supabase=configured?createClient(url,key,{auth:{storageKey:'billflow-auth',autoRefreshToken:true,persistSession:true,detectSessionInUrl:true}}):null;
 let activeAccess:Access|null=null;
 export async function readLedger(){if(!supabase)throw Error('ระบบกำลังเตรียมเปิดใช้งาน');const {data:{user},error:authError}=await supabase.auth.getUser();if(authError||!user)throw Error('กรุณาเข้าสู่ระบบอีกครั้ง');const {data,error}=await supabase.rpc('billflow_access_context');if(error)throw Error('โหลดสิทธิ์และข้อมูลบัญชีไม่สำเร็จ กรุณาลองใหม่');activeAccess=data.access;return {state:(data.payload||initialState()) as State,revision:data.revision as number,email:user.email||'',userId:user.id,access:data.access as Access};}
@@ -38,3 +38,12 @@ export async function listLinkableAccounts():Promise<LinkableAccount[]>{
  const [members,applicants]=await Promise.all([listMembers(),listApplicants()]);
  return [own,...members.map(m=>({id:m.id,email:m.email,name:m.name,confirmed:true})),...applicants];
 }
+
+export async function beginSystemReset(){const {data,error}=await supabase!.rpc('billflow_begin_reset');if(error){throw Error(Object.entries(resetErrors).find(([k])=>error.message.includes(k))?.[1]||'ขอรหัสยืนยันไม่สำเร็จ');}const sent=await supabase!.auth.reauthenticate();if(sent.error)throw Error('ส่งรหัสทางอีเมลไม่สำเร็จ กรุณารอสักครู่แล้วลองใหม่ หรือตรวจการตั้งค่าอีเมล');return data as {id:string,email:string,expiresAt:string,phrase:string};}
+export async function confirmSystemReset(id:string,code:string,phrase:string){const {data,error}=await supabase!.rpc('billflow_confirm_reset',{p_id:id,p_code:code,p_phrase:phrase});if(error)throw Error(Object.entries(resetErrors).find(([k])=>error.message.includes(k))?.[1]||'ล้างข้อมูลไม่สำเร็จ');if(!data?.ok)throw Error(resetErrors[data?.code]||'ล้างข้อมูลไม่สำเร็จ');return data as {ok:true,revision:number,filesPending:number};}
+export async function resetCleanupStatus(){const {data,error}=await supabase!.rpc('billflow_reset_cleanup_status');if(error)throw Error('ตรวจสถานะการล้างไฟล์ไม่สำเร็จ');return data as {pending:number,failed:boolean};}
+export async function runResetCleanup(){const {error}=await supabase!.functions.invoke('billflow-reset-cleanup',{body:{}});if(error)throw Error('ระบบจะลองล้างไฟล์ที่เหลืออีกครั้งอัตโนมัติ');}
+
+export type PreservedSetup={ownerEmail:string,pendingEmail:string,lineConfigured:boolean,lineEnabled:boolean,groupName:string,groupConnected:boolean,pairCodePending:boolean,webhookUrl:string,geminiConfigured:boolean,geminiModel:string,lineUpdatedAt:string|null};
+export async function preservedSetup(){const {data,error}=await supabase!.rpc('billflow_preserved_setup');if(error)throw Error('โหลดค่าที่คงไว้ไม่สำเร็จ');return data as PreservedSetup;}
+export async function requestOwnerEmailChange(email:string){const access=await readAccess();if(!access.owner)throw Error('เฉพาะเจ้าของร้านเท่านั้น');const {data,error}=await supabase!.auth.updateUser({email:email.trim().toLowerCase()},{emailRedirectTo:window.location.origin+'/BillFlow/'});if(error){if(error.code==='email_exists'||/already|registered|exists/i.test(error.message))throw Error('อีเมลนี้มีบัญชีอยู่แล้ว ช่องนี้ใช้เปลี่ยนอีเมลของบัญชีร้านเดิม กรุณาใช้อีเมลที่ยังไม่ได้สมัคร');throw Error('ส่งคำขอเปลี่ยนอีเมลไม่สำเร็จ กรุณาตรวจอีเมลแล้วลองอีกครั้ง');}return data.user;}
