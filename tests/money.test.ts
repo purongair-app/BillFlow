@@ -1,5 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {contactsForKind} from '../src/contacts.ts';
+test('customer and creditor directories stay separate from legacy contacts and employees',()=>{
+ const s=initialState();s.contacts=[{id:'c',code:'CT001',name:'สมชาย',note:'',active:true,kind:'customer'},{id:'v',code:'CR001',name:'สมชาย',note:'',active:true,kind:'creditor'},{id:'old',code:'CT002',name:'รายชื่อเดิม',note:'',active:true}];
+ s.employees=[{id:'e',code:'EMP001',name:'สมชาย',position:'ช่าง',active:true}];validateState(s);
+ assert.deepEqual(contactsForKind(s.contacts,'customer').map(c=>c.id),['c']);assert.deepEqual(contactsForKind(s.contacts,'creditor').map(c=>c.id),['v']);
+ assert.equal(resolveContact('สมชาย',s.contacts,undefined,'customer').id,'c');assert.equal(resolveContact('สมชาย',s.contacts,undefined,'creditor').id,'v');
+ assert.throws(()=>resolveContact('CR001 · สมชาย',s.contacts!,undefined,'customer'));
+ assert.equal(nextContactCode(s,'creditor'),'CR002');
+ s.entries=[entry({contact:'รายชื่อเดิม',contactId:'old'})];s.contacts[2].kind='creditor';validateState(s);assert.equal(s.entries[0].contactId,'old');assert.equal(s.entries[0].contact,'รายชื่อเดิม');
+ assert.deepEqual(resolveContact('CT002 · รายชื่อเดิม',s.contacts,s.entries[0],'customer'),{name:'รายชื่อเดิม',id:'old'});
+ s.contacts[2].kind='invalid' as any;assert.throws(()=>validateState(s));
+});
 
 import {accountDeletionReason,removeAccount} from '../src/banking.ts';
 test('account deletion preserves entries, balances, and the last account',()=>{
