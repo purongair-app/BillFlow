@@ -13,3 +13,5 @@ export function validatePayrollLine(line:PayrollLine){if(line.quantity===undefin
 // Thai baht text uses integer satang and supports the full allowed payroll range.
 export function thaiBaht(amount:number){if(!Number.isSafeInteger(amount)||amount<0||amount>1e12)return '—';const digits=['ศูนย์','หนึ่ง','สอง','สาม','สี่','ห้า','หก','เจ็ด','แปด','เก้า'],places=['','สิบ','ร้อย','พัน','หมื่น','แสน'];function read(n:number,tail=false):string{if(n>=1000000){const high=Math.floor(n/1000000),low=n%1000000;return read(high)+'ล้าน'+(low?read(low,true):'');}let out='';const s=String(n);for(let i=0;i<s.length;i++){const d=Number(s[i]),pos=s.length-i-1;if(!d)continue;if(pos===0&&d===1&&(s.length>1||tail))out+='เอ็ด';else if(pos===1&&d===1)out+='';else if(pos===1&&d===2)out+='ยี่';else out+=digits[d];out+=places[pos];}return out;}
  const baht=Math.floor(amount/100),satang=amount%100;return (baht?read(baht):'ศูนย์')+'บาท'+(satang?read(satang)+'สตางค์':'ถ้วน');}
+
+export const payrollWageNotice="หากมีข้อสงสัยเกี่ยวกับเงินค่าจ้าง ให้ติดต่อผู้จัดการฯ โดยตรง ภายใน 3 วัน หลังจากใบแจ้งรายละเอียดค่าแรงออก";
