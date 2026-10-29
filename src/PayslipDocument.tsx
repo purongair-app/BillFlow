@@ -1,6 +1,6 @@
 import type {PayrollSlip} from './payroll';
 import {grossPay,totalDeductions,netPay,paidPay,outstandingPay,payrollStatus} from './payroll';
-import {type PayrollForm,periodDays,payrollLineDetail,thaiBaht} from './payrollDocument';
+import {payrollWageNotice,type PayrollForm,periodDays,payrollLineDetail,thaiBaht} from './payrollDocument';
 import {money,dateLabel} from './money';
 export default function PayslipDocument({slip:p,business,copy}:{slip:PayrollSlip,business:string,copy:'shop'|'employee'}){
  const f=p.form,earnings=[{name:'ค่าแรง / เงินเดือน',amount:Math.round(p.units*p.rate),quantity:p.units,unitRate:p.rate},...p.earnings],length=Math.max(8,earnings.length,p.deductions.length),payments=p.payments.filter(x=>!x.voidDate),dates=[...new Set(payments.map(x=>x.date))].sort(),methods=[...new Set(payments.map(x=>x.method))];
@@ -11,6 +11,6 @@ export default function PayslipDocument({slip:p,business,copy}:{slip:PayrollSlip
  <div className="salary-disbursement"><b>สำหรับเจ้าหน้าที่</b><span>สถานะ: {payrollStatus(p)}</span><span>จ่ายแล้ว <b>{money(paidPay(p))}</b> บาท</span><span>คงเหลือ <b>{money(p.status==='cancelled'?0:outstandingPay(p))}</b> บาท</span><span>จ่ายโดย　{methods.includes('cash')?'☑':'☐'} เงินสด　{methods.includes('bank')?'☑':'☐'} โอนเข้าบัญชี　{methods.some(x=>!['cash','bank'].includes(x))?'☑':'☐'} อื่น ๆ</span><span>วันที่จ่าย: {dates.length?dates.map(dateLabel).join(' / '):'ยังไม่ได้จ่าย'}</span><span>กำหนดจ่าย: {dateLabel(p.dueDate)}</span><span>วันที่แจ้ง: {f?.issueDate?dateLabel(f.issueDate):'—'}</span>{f?.guaranteeAmount!==undefined&&<span>หลักประกัน / ยอดอ้างอิง: {money(f.guaranteeAmount)} บาท</span>}<span>สมทบประกันสังคมนายจ้าง: {money(p.employerSocial)} บาท</span></div>
  {p.note&&<p className="salary-note">หมายเหตุ: {p.note}</p>}{p.status==='cancelled'&&<p className="salary-note red">ยกเลิก {dateLabel(p.cancelDate!)} • {p.cancelReason}</p>}
  <div className="salary-signatures"><div><span>{f?.managerName||'________________________'}</span><b>{f?.managerPosition||'ผู้จัดการ / ผู้อนุมัติ'}</b><small>ลงชื่อ ________________________</small></div><div><span>{p.employeeName}</span><b>พนักงาน / ผู้รับเงิน</b><small>ลงชื่อ ________________________</small></div></div>
- {f?.footer&&<p className="salary-footer">{f.footer}</p>}<p className="salary-footer">PUROnGBillFlow • by PUROnGAIR</p>
+ <p className="salary-footer">{payrollWageNotice}</p>{f?.footer&&f.footer.trim()!==payrollWageNotice&&<p className="salary-footer">{f.footer}</p>}<p className="salary-footer">PUROnGBillFlow • by PUROnGAIR</p>
  </article>;
 }
