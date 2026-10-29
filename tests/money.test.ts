@@ -228,3 +228,5 @@ test('usage browser classification respects overlapping Edge and Samsung tokens 
  const row={id:'1',occurred_at:'2026-10-29T14:00:00Z',actor_name:'QA',actor_email:'',description:'เปิดเมนู',entity_type:'settings',entity_id:'',ip:null,device_id:null,user_agent:'Mozilla/5.0 (Windows NT 10.0) Chrome/130.0 Safari/537.36 Edg/130.0',source:'browser'} as UsageEvent;
  const csv=usageCsv([row]);assert.match(csv,/ประเภทอุปกรณ์/);assert.match(csv,/คอมพิวเตอร์/);assert.match(csv,/Windows/);assert.match(csv,/Microsoft Edge/);
 });
+
+import "./bill-details.test.ts";
