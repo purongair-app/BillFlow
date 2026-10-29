@@ -140,13 +140,13 @@ return <div className="app"><aside className={mobile?'sidebar visible':'sidebar'
 .weather-card{position:relative;isolation:isolate;overflow:hidden}
 .weather-card-summary,.weather-card-context,.weather-card-error{position:relative;z-index:1}
 .weather-scene{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:hidden}
-.weather-theme-rain{background:linear-gradient(120deg,#e4edf9,#d8e7f4)}
-.weather-theme-thunder{background:linear-gradient(120deg,#e5e7f5,#cfdcf0)}
-.weather-theme-snow{background:linear-gradient(120deg,#f2f8ff,#deeffa)}
-.weather-theme-sun{background:linear-gradient(120deg,#fff7dd,#eaf3ff)}
-.weather-theme-clouds{background:linear-gradient(120deg,#edf3fb,#dce6f2)}
-.weather-theme-night{background:linear-gradient(120deg,#e8eafb,#dce3f5)}
-.weather-theme-fog{background:linear-gradient(120deg,#f0f3f7,#dce5ea)}
+.weather-card.weather-theme-rain{background:linear-gradient(120deg,#e4edf9,#d8e7f4)}
+.weather-card.weather-theme-thunder{background:linear-gradient(120deg,#e5e7f5,#cfdcf0)}
+.weather-card.weather-theme-snow{background:linear-gradient(120deg,#f2f8ff,#deeffa)}
+.weather-card.weather-theme-sun{background:linear-gradient(120deg,#fff7dd,#eaf3ff)}
+.weather-card.weather-theme-clouds{background:linear-gradient(120deg,#edf3fb,#dce6f2)}
+.weather-card.weather-theme-night{background:linear-gradient(120deg,#e8eafb,#dce3f5)}
+.weather-card.weather-theme-fog{background:linear-gradient(120deg,#f0f3f7,#dce5ea)}
 .weather-cloud{display:none;position:absolute;top:18%;width:210px;height:65px;background:#fff;border-radius:60px;opacity:.35;animation:weather-cloud-drift 26s ease-in-out infinite alternate}
 .weather-cloud:before,.weather-cloud:after{content:'';position:absolute;background:inherit;border-radius:50%;width:95px;height:95px;left:35px;bottom:0}
 .weather-cloud:after{width:75px;height:75px;left:108px;bottom:5px}
