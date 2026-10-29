@@ -209,3 +209,5 @@ import {deviceId,clientInfo} from '../src/usage.ts';
 test('browser device reference reuses the persisted identifier and does not request hardware identity',()=>{
  const stored='00000000-0000-4000-8000-000000000123';Object.defineProperty(globalThis,'localStorage',{configurable:true,value:{getItem:()=>stored,setItem:()=>{throw Error('Should reuse the stored browser ID');}}});assert.equal(deviceId(),stored);assert.equal(deviceId(),stored);assert.equal(clientInfo(),'PUROnGBillFlow/1 device='+stored);delete (globalThis as {localStorage?:Storage}).localStorage;
 });
+
+import './withholding.test.ts';
