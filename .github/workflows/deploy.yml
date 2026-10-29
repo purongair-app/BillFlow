@@ -5,10 +5,11 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+  actions: read
   pages: write
   id-token: write
 concurrency:
-  group: pages
+  group: billflow-publish
   cancel-in-progress: true
 jobs:
   build:
@@ -36,6 +37,25 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     steps:
+      - name: Wait for existing Pages publication
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // This repository also has branch-based Pages enabled. Publish the
+            // compiled app last so a legacy source build cannot overwrite it.
+            for (let attempt = 0; attempt < 60; attempt++) {
+              const {data} = await github.rest.actions.listWorkflowRunsForRepo({
+                owner: context.repo.owner, repo: context.repo.repo,
+                head_sha: context.sha, per_page: 100
+              });
+              const legacy = data.workflow_runs.filter(run =>
+                run.name === 'pages build and deployment' && run.id !== context.runId
+              );
+              if (legacy.length && legacy.every(run => run.status === 'completed')) return;
+              if (!legacy.length && attempt >= 6) return;
+              await new Promise(resolve => setTimeout(resolve, 5000));
+            }
+            core.setFailed('Legacy Pages publication is still running; retry this workflow after it completes.');
       - name: Publish
         id: deployment
         uses: actions/deploy-pages@v4
