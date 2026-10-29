@@ -63,3 +63,16 @@
 .sidebar > .side-bottom{flex:0 0 auto;margin-top:0;padding-top:8px;background:#fff}
 .sidebar .user{padding-bottom:env(safe-area-inset-bottom,0px)}
 @media(max-height:650px){.sidebar > .brand{margin-bottom:14px}.sidebar > .workspace{margin-bottom:14px}.sidebar > .side-bottom .secure{display:none}.sidebar .user{padding-top:12px}}
+
+/* Adapt the fixed navigation areas to the available screen space. */
+.app > .main{min-width:0}
+.topbar .crumb > span,.topbar .crumb > b{min-width:0;overflow-wrap:anywhere}
+.topbar .crumb > svg,.topbar-navigation svg{flex-shrink:0}
+.topbar-actions,.topbar-navigation{max-width:100%}
+.sidebar > nav > button{min-height:44px}
+.sidebar .user{min-height:56px}
+.sidebar .user b,.sidebar .user small{overflow-wrap:anywhere}
+@media screen and (max-width:1024px){.topbar .crumb{flex-basis:100%}.topbar-actions{width:100%;justify-content:space-between}.topbar-navigation button{min-height:44px}}
+@media screen and (max-width:800px){.app > .sidebar{width:min(280px,calc(100vw - 48px));padding-bottom:max(12px,env(safe-area-inset-bottom,0px))}.topbar .mobile-menu{min-width:44px;min-height:44px;flex-shrink:0}.topbar .crumb{flex-wrap:nowrap;gap:8px}.topbar .crumb > span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}.topbar .crumb > b{max-width:45%}}
+@media screen and (max-width:520px){.main > .topbar{padding:8px 12px;gap:6px}.topbar-navigation{gap:5px}.topbar-navigation button{min-width:0;padding:8px 6px;gap:5px;font-size:12px}.topbar-navigation button svg{width:16px;height:16px}.sidebar > .brand{margin-bottom:16px}.sidebar > .workspace{margin-bottom:16px}}
+@media screen and (max-width:360px){.topbar .crumb{font-size:10px}.topbar-navigation button{font-size:11px}}
