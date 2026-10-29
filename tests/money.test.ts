@@ -198,3 +198,14 @@ import {canConfirmReset,resetPhrase} from '../src/reset.ts';
 test('system reset requires an email OTP and the exact confirmation phrase',()=>{assert.equal(canConfirmReset('123456',resetPhrase),true);assert.equal(canConfirmReset('',resetPhrase),false);assert.equal(canConfirmReset('12345',resetPhrase),false);assert.equal(canConfirmReset('12345x',resetPhrase),false);assert.equal(canConfirmReset('123456','ล้างข้อมูล'),false);assert.equal(canConfirmReset('123456',resetPhrase+' '),false);});
 
 import './bookkeeping.test.ts';
+
+import {usageCsv,type UsageEvent} from '../src/usage.ts';
+test('usage CSV preserves reference metadata and neutralizes spreadsheet formulas',()=>{
+ const row={id:'1',occurred_at:'2026-10-29T14:00:00Z',actor_name:'=HYPERLINK("bad")',actor_email:'qa@example.invalid',description:'แก้ไขข้อมูล',entity_type:'entries',entity_id:'e1',ip:'192.0.2.42',device_id:'browser-id',user_agent:'Browser',source:'database'} as UsageEvent;
+ const csv=usageCsv([row]);assert.match(csv,/'=HYPERLINK/);assert.match(csv,/192.0.2.42/);assert.match(csv,/browser-id/);assert.match(csv,/database/);
+});
+
+import {deviceId,clientInfo} from '../src/usage.ts';
+test('browser device reference reuses the persisted identifier and does not request hardware identity',()=>{
+ const stored='00000000-0000-4000-8000-000000000123';Object.defineProperty(globalThis,'localStorage',{configurable:true,value:{getItem:()=>stored,setItem:()=>{throw Error('Should reuse the stored browser ID');}}});assert.equal(deviceId(),stored);assert.equal(deviceId(),stored);assert.equal(clientInfo(),'PUROnGBillFlow/1 device='+stored);delete (globalThis as {localStorage?:Storage}).localStorage;
+});
