@@ -25,7 +25,12 @@ begin
  perform set_config('request.jwt.claim.sub',worker::text,true);set local role authenticated;
  ctx:=public.billflow_access_context();p:=jsonb_set(ctx->'payload','{recurringExpenses}',r);rev:=(ctx->>'revision')::bigint;
  perform public.billflow_save_workspace(p,rev);ctx:=public.billflow_access_context();if ctx->'payload'->'recurringExpenses'<>r then raise exception 'RECURRING_NOT_SAVED';end if;
- reset role;update public.billflow_members set edit_menus='{}' where user_id=worker;
+ p:=jsonb_set(ctx->'payload','{recurringExpenseNames}','[{"id":"qa-name","name":"ค่าอินเทอร์เน็ต"}]');rev:=(ctx->>'revision')::bigint;perform public.billflow_save_workspace(p,rev);
+ ctx:=public.billflow_access_context();if ctx->'payload'->'recurringExpenseNames'<>p->'recurringExpenseNames' then raise exception 'CATALOG_SAVE_FAILED';end if;
+ begin perform public.billflow_save_workspace(jsonb_set(p,'{recurringExpenseNames}','[{"id":"qa-name","name":"ชื่อซ้ำ"},{"id":"qa-second","name":"ชื่อซ้ำ"}]'),(ctx->>'revision')::bigint);raise exception 'DUPLICATE_CATALOG_ACCEPTED';exception when others then if sqlerrm<>'INVALID_RECURRING_NAMES' then raise;end if;end;
+ reset role;
+ if billflow_private.recurring_due('{"frequency":"monthly","repeat":false,"startDate":"2026-11-05"}','2026-12-05') or not billflow_private.recurring_due('{"frequency":"monthly","repeat":false,"startDate":"2026-11-05"}','2026-11-05') then raise exception 'REPEAT_CHECKBOX_IGNORED';end if;
+ update public.billflow_members set edit_menus='{}' where user_id=worker;
  set local role authenticated;
  begin perform public.billflow_save_workspace(p,1);raise exception 'READONLY_ACCEPTED';exception when others then if sqlerrm<>'READ_ONLY' then raise;end if;end;
  reset role;

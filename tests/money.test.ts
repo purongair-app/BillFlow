@@ -160,3 +160,16 @@ test('recurring validation accepts unknown bill totals and rejects impossible da
 test('recurring reminders contain a clear estimated amount and due date, without posting transactions',()=>{
  const q={id:'notice',action:'reminder',entry:{title:'ค่าไฟ\nรายการปลอม',amount:19260,due:'2026-11-05',days:7,frequency:'monthly'},business:'ร้านตัวอย่าง',accounts:[]};const text=notificationText(q);assert.match(text,/อีก 7 วัน/);assert.match(text,/ยอดประมาณ: 192.60 บาท/);assert.match(text,/ค่าไฟ รายการปลอม/);assert.match(text,/recurring=1/);assert.match(notificationText({...q,entry:{...q.entry,amount:0}}),/รอยอดบิลจริง/);assert.throws(()=>notificationText({...q,entry:{...q.entry,days:1}}));
 });
+
+import {defaultRecurringNames,saveRecurringName,validateRecurringNames,occurrenceComplete} from '../src/recurring.ts';
+test('recurring expense catalog supports add, rename, delete and rejects duplicate names',()=>{
+ const added=saveRecurringName(defaultRecurringNames,' ค่าอินเทอร์เน็ต ');assert.equal(added.at(-1)!.name,'ค่าอินเทอร์เน็ต');assert.equal(defaultRecurringNames.length,6);
+ const renamed=saveRecurringName(added,'ค่าประกันรถ',added.at(-1)!.id);assert.equal(renamed.at(-1)!.name,'ค่าประกันรถ');assert.throws(()=>saveRecurringName(renamed,'ค่าเช่าร้าน'));assert.throws(()=>saveRecurringName(renamed,'  '));validateRecurringNames(renamed.filter(x=>x.id!==renamed.at(-1)!.id));validateRecurringNames([]);
+ const s=initialState();s.recurringExpenseNames=renamed;validateState(s);
+});
+test('repeat checkbox preserves legacy monthly/yearly schedules and limits unchecked schedules to one occurrence',()=>{
+ const single=recurring({repeat:false,startDate:'2026-11-05'});assert.equal(isOccurrence(single,'2026-11-05'),true);assert.equal(isOccurrence(single,'2026-12-05'),false);assert.equal(isOccurrence(recurring({startDate:'2026-11-05'}),'2026-12-05'),true);assert.equal(isOccurrence({...single,repeat:true},'2026-12-05'),true);
+ assert.equal(occurrenceComplete(single,'2026-11-06'),true);assert.equal(occurrenceComplete({...single,paidThrough:'2026-11-05'},'2026-11-01'),true);assert.equal(occurrenceComplete(single,'2026-11-01'),false);assert.equal(nextOccurrence(single,'2026-11-06'),'2026-11-05');
+ assert.throws(()=>validateRecurring([{...single,repeat:'yes'}]));
+ const text=notificationText({id:'single',action:'reminder',entry:{title:'ทดสอบ',amount:0,due:'2026-11-05',days:7,frequency:'monthly',schedule:single},business:'',accounts:[]});assert.match(text,/ครั้งเดียว/);
+});
