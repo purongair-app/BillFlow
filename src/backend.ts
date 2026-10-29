@@ -1,4 +1,4 @@
-import type {Access,Member,MemberRole} from './permissions';
+import type {Access,Member,MemberRole,Applicant} from './permissions';
 import {createClient} from '@supabase/supabase-js';
 import {initialState,validateState,type State} from './money';
 import {connection} from './config';
@@ -24,3 +24,5 @@ export async function confirmLineDocument(state:State,revision:number,id:string,
  validateState(state);const {data,error}=await supabase!.rpc('billflow_confirm_inbox',{p_id:id,p_target:target,new_payload:state,expected_revision:revision});
  if(error){if(error.message.includes('CONFLICT'))throw Error('ข้อมูลเปลี่ยนจากอุปกรณ์อื่น กรุณาโหลดหน้าใหม่ก่อนยืนยัน');if(error.message.includes('DRAFT_NOT_AVAILABLE')||error.message.includes('ALREADY_IMPORTED'))throw Error('เอกสารนี้ถูกยืนยันหรือเปลี่ยนสถานะแล้ว กรุณาโหลดใหม่');throw Error('ยืนยันเอกสารไม่สำเร็จ กรุณาตรวจสอบแล้วลองอีกครั้ง');}return {revision:data as number};
 }
+
+export async function listApplicants(){const {data,error}=await supabase!.rpc('billflow_list_applicants');if(error)throw Error('โหลดผู้สมัครรอกำหนดสิทธิ์ไม่สำเร็จ กรุณาลองใหม่');return data as Applicant[];}
