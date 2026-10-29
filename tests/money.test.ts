@@ -120,3 +120,11 @@ test('OCR request normalizes a returned invoice and propagates provider failures
  await assert.rejects(extractDocument('test-key-only','gemini-3.8-flash',new Uint8Array([1]),'image/jpeg',async()=>new Response('{}',{status:429})),/AI_429/);
  const s=initialState(),doc=inboxDocument({documentType:'slip',amount:10000,title:'ชำระเงิน',receiverName:'ชื่ออ่านผิด'}),f=suggestImport(s,doc);const result=importLineDocument(s,doc,{...f,type:'income',account:'bank',receiverName:'ชื่อที่ตรวจแล้ว'});assert.equal(result.state.entries[0].receiverName,'ชื่อที่ตรวจแล้ว');
 });
+
+import {parseOcrCredentials} from '../supabase/functions/billflow-line/ocr.ts';
+test('API setup distinguishes key and model errors and does not restrict provider key punctuation',()=>{
+ const key='QA.test-key_with-punctuation_0123456789';assert.deepEqual(parseOcrCredentials({key:'  '+key+'\n',model:' models/gemini-3.8-flash '}),{key,model:'gemini-3.8-flash'});
+ assert.throws(()=>parseOcrCredentials({key:'BillFlow',model:'gemini-3.8-flash'}),/รูปแบบ API key/);
+ assert.throws(()=>parseOcrCredentials({key:key+' hidden space',model:'gemini-3.8-flash'}),/รูปแบบ API key/);
+ assert.throws(()=>parseOcrCredentials({key,model:'gemini 3.8 flash'}),/ชื่อโมเดล/);
+});

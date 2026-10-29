@@ -1,4 +1,4 @@
-import {extractDocument} from './ocr.ts';
+import {extractDocument,parseOcrCredentials} from './ocr.ts';
 type DB=any;
 const OWNER='978bc5a3-50bd-45e3-bef8-4aca3f5bfa44';
 const APP='https://purongair-app.github.io/BillFlow/?inbox=1';
@@ -33,7 +33,7 @@ export async function processInbox(db:DB,config:()=>Promise<any>){
 }
 export async function inboxAction(db:DB,action:string,input:any){
  if(action==='inbox'){const {data,error}=await db.from('billflow_line_inbox').select('id,file_id,mime,file_size,status,extracted,last_error,created_at,confirmed_target,duplicate_of').eq('owner',OWNER).order('created_at',{ascending:false}).limit(100);if(error)throw Error('INBOX_LIST');const ai=await ocrConfig(db);return {documents:data||[],ocrConfigured:!!ai.key,model:ai.model};}
- if(action==='ocr-key'){const key=String(input.key||'').trim(),model=String(input.model||'gemini-3.8-flash');if(!/^[A-Za-z0-9_-]{20,200}$/.test(key)||!/^gemini-[a-z0-9.\-]{1,80}$/.test(model))return {error:'กรุณาตรวจ API key และชื่อโมเดล'};
+ if(action==='ocr-key'){let key:string,model:string;try{({key,model}=parseOcrCredentials(input));}catch(e){return {error:e instanceof Error?e.message:'กรุณาตรวจข้อมูลที่กรอก'};}
   const check=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(model),{headers:{'x-goog-api-key':key},signal:AbortSignal.timeout(10000)});if(!check.ok)return {error:'ตรวจ Key หรือโมเดลไม่ผ่าน ('+check.status+')'};
   const {error}=await db.rpc('billflow_ocr_store',{p_owner:OWNER,p_key:key,p_model:model});if(error)throw Error('OCR_STORE');const reset=await db.from('billflow_line_inbox').update({status:'pending',attempts:0,last_error:null}).eq('owner',OWNER).eq('status','needs_key');if(reset.error)throw Error('OCR_REQUEUE');return {ok:true};
  }
