@@ -269,6 +269,8 @@ return <div className="app"><aside className={mobile?'sidebar visible':'sidebar'
 @media(max-width:1150px){.weather-card{padding:22px;gap:18px}.weather-card-summary{gap:14px}.weather-card-temperature{font-size:44px}.weather-card-temperature>span{font-size:30px}.weather-card-description>b{font-size:17px}.weather-card-icon svg{width:54px;height:54px}.weather-card-datetime{font-size:16px}}
 @media(max-width:650px){.weather-card{grid-template-columns:minmax(0,1fr);padding:20px 16px;border-radius:16px;gap:18px}.weather-card-summary{gap:12px}.weather-card-description{flex:1 1 130px}.weather-card-description>p{font-size:12px}.weather-card-context{align-items:flex-start;border-top:1px solid #d1ddf5;padding-top:14px}.weather-card-datetime,.weather-card-location{justify-content:flex-start}.weather-card-datetime{font-size:15px}.weather-card-credit{font-size:10px}}
 .menu-search{position:relative;flex-shrink:0}
+.topbar .menu-search,.topbar .voice-navigation{position:static}
+.topbar .menu-search-panel,.topbar .voice-menu-panel{right:12px;top:calc(100% + 8px)}
 .menu-search-trigger{min-height:44px}
 .menu-search-panel{position:absolute;right:0;top:calc(100% + 8px);width:min(360px,calc(100vw - 32px));max-height:min(70vh,560px);overflow-y:auto;padding:16px;border:1px solid #d6e5dd;border-radius:12px;background:#fff;box-shadow:0 8px 30px #193d2726;z-index:5}
 .menu-search-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;font-size:14px}
