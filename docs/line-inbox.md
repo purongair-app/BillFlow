@@ -13,3 +13,5 @@ No real extraction success is claimed until a valid key is configured and an act
 ## Validation
 
 The accounting and OCR unit checks pass. A rolled-back SQL transaction checked atomic confirmation and repeat rejection without retaining financial test data. Signed synthetic webhooks checked ingestion, redelivery deduplication and invalid-signature rejection; dummy LINE message content is expected to fail download. No real OCR success is claimed without a configured key. Browser QA is unavailable because the managed preview daemon cannot access workspace dependencies. Test actual capture by sending a new image after deployment.
+
+A real LINE image completed extraction with gemini-3.5-flash-lite on 2026-10-29. The configured 3.8 model exceeded 45 and 90 second request deadlines; the verified model is now the default. Extraction remains a review draft, not an automatically posted ledger record. No customer details are included in this development note.

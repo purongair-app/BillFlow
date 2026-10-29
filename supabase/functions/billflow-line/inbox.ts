@@ -2,7 +2,7 @@ import {extractDocument,parseOcrCredentials} from './ocr.ts';
 type DB=any;
 const OWNER='978bc5a3-50bd-45e3-bef8-4aca3f5bfa44';
 const APP='https://purongair-app.github.io/BillFlow/?inbox=1';
-export async function ocrConfig(db:DB){const {data,error}=await db.rpc('billflow_ocr_config',{p_owner:OWNER});if(error)throw Error('OCR_CONFIG');return {key:data?.key||Deno.env.get('GEMINI_API_KEY')||'',model:data?.model||Deno.env.get('GEMINI_MODEL')||'gemini-3.8-flash'};}
+export async function ocrConfig(db:DB){const {data,error}=await db.rpc('billflow_ocr_config',{p_owner:OWNER});if(error)throw Error('OCR_CONFIG');return {key:data?.key||Deno.env.get('GEMINI_API_KEY')||'',model:data?.model||Deno.env.get('GEMINI_MODEL')||'gemini-3.5-flash-lite'};}
 export async function receiveImage(db:DB,event:any,group:string){
  const message=String(event.message?.id||'');if(!/^\d{1,50}$/.test(message))return false;
  const {data,error}=await db.from('billflow_line_inbox').upsert({owner:OWNER,message_id:message,group_id:group},{onConflict:'owner,message_id',ignoreDuplicates:true}).select('id');

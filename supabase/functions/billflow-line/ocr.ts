@@ -16,7 +16,7 @@ export async function extractDocument(key:string,model:string,bytes:Uint8Array,m
 }
 
 export function parseOcrCredentials(input:{key?:unknown,model?:unknown}){
- const key=String(input.key||'').trim(),model=String(input.model||'gemini-3.8-flash').trim().replace(/^models\//,'');
+ const key=String(input.key||'').trim(),model=String(input.model||'gemini-3.5-flash-lite').trim().replace(/^models\//,'');
  if(!/^[\x21-\x7e]{20,2048}$/.test(key))throw Error('รูปแบบ API key ไม่ถูกต้อง กรุณาคัดลอกเฉพาะค่ากุญแจจากปุ่มคัดลอกใน Google AI Studio ไม่ใช่ชื่อกุญแจหรือรหัสโปรเจกต์ และอย่าให้มีช่องว่างภายใน');
  if(!/^gemini-[a-z0-9.\-]{1,80}$/.test(model))throw Error('ชื่อโมเดลไม่ถูกต้อง กรุณาตรวจว่าไม่มีช่องว่างหรือข้อความอื่นต่อท้าย');
  return {key,model};
