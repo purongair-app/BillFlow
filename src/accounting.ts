@@ -1,3 +1,4 @@
+import {nextStateNumber} from './numbering.ts';
 import {billSummary} from './billDetails.ts';
 import {netAmount,withholdingAmount} from './withholding.ts';
 import {type State,type Entry,type ExpenseKind} from './money.ts';
@@ -5,7 +6,7 @@ export const expenseKindLabels:Record<ExpenseKind,string>={general:'รายจ
 export const expenseAccountLabels={shop:'บัญชีร้าน',owner:'บัญชีส่วนตัวเจ้าของ'};
 export const paymentLabels={cash:'เงินสด',bank:'โอน / ธนาคาร',card:'บัตร',other:'อื่น ๆ'};
 export const locationLabels={onsite:'หน้างาน',shop:'ร้าน / สำนักงาน',other:'อื่น ๆ'};
-export function nextDocumentNo(s:State,type:Entry['type'],date:string,excludeId?:string){const prefix={income:'RV',expense:'PV',transfer:'TR'}[type]+'-'+(Number(date.slice(0,4))+543)+date.slice(5,7)+'-';const used=s.entries.filter(e=>e.id!==excludeId).map(e=>e.documentNo||'');let max=0;for(const doc of used){if(doc.startsWith(prefix)&&/^\d+$/.test(doc.slice(prefix.length)))max=Math.max(max,Number(doc.slice(prefix.length)));}return prefix+String(max+1).padStart(4,'0');}
+export function nextDocumentNo(s:State,type:Entry['type'],date:string,excludeId?:string){return nextStateNumber({...s,entries:s.entries.filter(e=>e.id!==excludeId)},type,date);}
 export function cashflow(e:Entry,accountId='all'){if(accountId==='all')return {incoming:e.type==='income'?netAmount(e):0,outgoing:e.type==='expense'?netAmount(e):0};return {incoming:(e.type==='income'&&e.account===accountId)||(e.type==='transfer'&&e.to===accountId)?netAmount(e):0,outgoing:e.type!=='income'&&e.account===accountId?netAmount(e):0};}
 export function cashbook(s:State,month:string,accountId='all'){if(!/^\d{4}-\d{2}$/.test(month))throw Error('กรุณาเลือกเดือน');let opening=s.accounts.filter(a=>accountId==='all'||a.id===accountId).reduce((n,a)=>n+a.opening,0);for(const e of s.entries){if(e.date<month+'-01'){const f=cashflow(e,accountId);opening+=f.incoming-f.outgoing;}}let running=opening,incoming=0,outgoing=0;const entries=s.entries.filter(e=>e.date.startsWith(month)&&(accountId==='all'||e.account===accountId||(e.type==='transfer'&&e.to===accountId))).sort((a,b)=>a.date.localeCompare(b.date)||(a.transactionTime||'').localeCompare(b.transactionTime||'')||(a.documentNo||'').localeCompare(b.documentNo||'')||a.id.localeCompare(b.id));const rows=entries.map(entry=>{const f=cashflow(entry,accountId);running+=f.incoming-f.outgoing;incoming+=f.incoming;outgoing+=f.outgoing;return {entry,...f,balance:running};});return {opening,incoming,outgoing,closing:running,rows};}
 export type CashbookRow=ReturnType<typeof cashbook>['rows'][number];
