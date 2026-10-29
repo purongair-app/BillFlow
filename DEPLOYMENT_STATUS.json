@@ -12,16 +12,29 @@
     "Test signup confirmation delivery and password-reset delivery with a real user request"
   ],
   "verification": {
-    "client_financial_tests": 4,
+    "client_financial_tests": 9,
     "build": "passed",
     "database_rls": "passed with rollback",
     "concurrent_revision": "passed",
     "anonymous_access": "denied",
-    "new_records_after_tests": 0
+    "new_records_after_tests": 0,
+    "accounting_metadata_storage": "passed with rollback",
+    "accounting_ui": "passed using isolated sample data",
+    "physical_printing": "not tested"
   },
   "replit_used": false,
   "auth_callback_url_configured": true,
   "auth_email_sender_configured": true,
   "auth_email_sender_address": "airfriendnara@gmail.com",
-  "auth_email_delivery_tested": false
+  "auth_email_delivery_tested": false,
+  "accounting_cashbook_enabled": true,
+  "expense_detail_fields_enabled": true,
+  "add_transaction_button_page": "entries",
+  "month_selector_pages": [
+    "overview",
+    "entries",
+    "cashbook",
+    "budgets",
+    "reports"
+  ]
 }
