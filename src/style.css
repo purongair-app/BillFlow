@@ -80,3 +80,10 @@
 .payroll-import-review [aria-invalid="true"]{border:2px solid #dc2626!important;background:#fff1f2}
 .payroll-validation-summary:not(:empty){padding:16px;border:1px solid #dc2626;background:#fff1f2;color:#b91c1c;border-radius:10px;margin:16px 0}
 .payroll-validation-summary button{color:#b91c1c;text-align:left}
+
+/* Keep the compact navigation button group at the right edge on mobile/tablet. */
+@media screen and (max-width:1024px){
+ .topbar .topbar-actions{justify-content:flex-end}
+ .topbar .topbar-navigation{width:auto;margin-left:auto;flex:0 1 auto;justify-content:flex-end}
+ .topbar .topbar-navigation > button{flex:0 0 auto}
+}
