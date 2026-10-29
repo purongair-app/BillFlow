@@ -1,5 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {people,savePerson,togglePerson,deletePerson} from '../src/people.ts';
+test('unified directory creates each type and retains old unclassified contacts',()=>{
+ let s=initialState();s.contacts=[{id:'old',code:'CT001',name:'รายชื่อเดิม',note:'เดิม',active:true}];
+ for(const kind of ['customer','creditor','employee'] as const)s=savePerson(s,{kind,code:'',name:'ชื่อ '+kind,details:'รายละเอียด'});
+ assert.deepEqual(people(s).map(p=>p.kind).sort(),['creditor','customer','employee','unclassified']);
+ const employee=people(s).find(p=>p.kind==='employee')!;assert.equal(s.employees![0].position,'รายละเอียด');
+ s=togglePerson(s,employee);assert.equal(s.employees![0].active,false);s=deletePerson(s,employee);assert.equal(s.employees!.length,0);
+ const legacy=people(s).find(p=>p.id==='old')!;s=savePerson(s,{kind:'creditor',code:legacy.code,name:legacy.name,details:legacy.details},legacy);assert.equal(s.contacts![0].kind,'creditor');assert.equal(s.contacts![0].id,'old');validateState(s);
+});
+test('unified directory edits and changes unused types without duplication, preserving linked history',()=>{
+ let s=savePerson(initialState(),{kind:'customer',code:'CUSTOM1',name:'ลูกค้า',details:'เดิม'});
+ const person=people(s)[0];s=savePerson(s,{kind:'employee',code:person.code,name:'พนักงาน',details:'ช่าง'},person);assert.equal(s.contacts!.length,0);assert.equal(s.employees!.length,1);assert.equal(s.employees![0].id,person.id);
+ s.entries=[entry({recipient:'พนักงาน',recipientEmployeeId:person.id})];
+ const employee=people(s)[0];assert.throws(()=>savePerson(s,{kind:'creditor',code:employee.code,name:employee.name,details:''},employee));assert.throws(()=>deletePerson(s,employee));
+ s=savePerson(s,{kind:'employee',code:employee.code,name:'ชื่อใหม่',details:'หัวหน้าช่าง'},employee);assert.equal(s.entries[0].recipient,'พนักงาน');assert.equal(s.entries[0].recipientEmployeeId,person.id);validateState(s);
+});
 import {contactsForKind} from '../src/contacts.ts';
 test('customer and creditor directories stay separate from legacy contacts and employees',()=>{
  const s=initialState();s.contacts=[{id:'c',code:'CT001',name:'สมชาย',note:'',active:true,kind:'customer'},{id:'v',code:'CR001',name:'สมชาย',note:'',active:true,kind:'creditor'},{id:'old',code:'CT002',name:'รายชื่อเดิม',note:'',active:true}];
