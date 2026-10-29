@@ -196,3 +196,5 @@ test('standard roles provide bounded menu defaults with independent editable cop
 
 import {canConfirmReset,resetPhrase} from '../src/reset.ts';
 test('system reset requires an email OTP and the exact confirmation phrase',()=>{assert.equal(canConfirmReset('123456',resetPhrase),true);assert.equal(canConfirmReset('',resetPhrase),false);assert.equal(canConfirmReset('12345',resetPhrase),false);assert.equal(canConfirmReset('12345x',resetPhrase),false);assert.equal(canConfirmReset('123456','ล้างข้อมูล'),false);assert.equal(canConfirmReset('123456',resetPhrase+' '),false);});
+
+import './bookkeeping.test.ts';
