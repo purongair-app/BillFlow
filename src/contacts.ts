@@ -1,0 +1,6 @@
+import type {Contact,Entry,State} from './money';
+export function nextContactCode(s:State){const codes=new Set((s.contacts||[]).map(c=>c.code.toUpperCase()));let n=1;while(codes.has('CT'+String(n).padStart(3,'0')))n++;return 'CT'+String(n).padStart(3,'0');}
+export function contactValue(e:Entry|undefined,contacts:Contact[]){const c=contacts.find(c=>c.id===e?.contactId);return c?`${c.code} · ${e?.contact||c.name}`:e?.contact||'';}
+export function resolveContact(raw:string,contacts:Contact[],previous?:Entry):{name:string,id?:string}{const value=raw.trim();if(previous?.contactId&&value===contactValue(previous,contacts))return {name:previous.contact,id:previous.contactId};const exact=contacts.find(c=>value===`${c.code} · ${c.name}`);if(exact){if(!exact.active)throw Error('ลูกค้า / คู่ค้านี้ปิดใช้งานแล้ว กรุณาเลือกชื่ออื่น');return {name:exact.name,id:exact.id};}const names=contacts.filter(c=>c.active&&c.name===value);if(names.length===1)return {name:names[0].name,id:names[0].id};return {name:value};}
+export function contactUsageCount(s:State,id:string){return s.entries.filter(e=>e.contactId===id).length;}
+export function contactId(){return 'ct-'+Array.from(crypto.getRandomValues(new Uint8Array(16)),n=>n.toString(16).padStart(2,'0')).join('');}

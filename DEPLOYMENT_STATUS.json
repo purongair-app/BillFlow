@@ -12,7 +12,7 @@
     "Test signup confirmation delivery and password-reset delivery with a real user request"
   ],
   "verification": {
-    "client_financial_tests": 11,
+    "client_financial_tests": 13,
     "build": "passed",
     "database_rls": "passed with rollback",
     "concurrent_revision": "passed",
@@ -21,7 +21,8 @@
     "accounting_metadata_storage": "passed with rollback",
     "accounting_ui": "passed using isolated sample data",
     "physical_printing": "not tested",
-    "employee_ui": "passed using isolated sample data"
+    "employee_ui": "passed using isolated sample data",
+    "contacts_ui": "passed using isolated sample data"
   },
   "replit_used": false,
   "auth_callback_url_configured": true,
@@ -39,5 +40,6 @@
     "reports"
   ],
   "employee_directory_enabled": true,
-  "transfer_category": "โอนภายใน"
+  "transfer_category": "โอนภายใน",
+  "contacts_directory_enabled": true
 }
