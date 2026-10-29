@@ -1,4 +1,6 @@
 begin;
+alter table public.billflow_members drop constraint billflow_members_menus_check, drop constraint billflow_members_check;
+alter table public.billflow_members add constraint billflow_members_menus_check check(menus<@array['overview','entries','cashbook','accounts','people','debts','budgets','reports','payroll']), add constraint billflow_members_check check(edit_menus<@array['entries','accounts','people','debts','budgets','payroll'] and edit_menus<@menus);
 -- Extend the existing per-user ledger/menu model; salary records remain in that user's ledger.
 do $patch$
 declare f text;
