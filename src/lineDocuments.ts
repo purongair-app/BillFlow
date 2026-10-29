@@ -3,7 +3,7 @@ import type {WithholdingTax} from './withholding.ts';
 import {validateBillDetails,type BillDetails} from './billDetails.ts';
 import {validateState,type State,type Entry,type Debt,today} from './money.ts';
 import {nextDocumentNo} from './accounting.ts';
-export type DocumentData={payroll?:PayrollExtracted|null,billDetails?:BillDetails|null,documentType?:string,documentNo?:string,date?:string,due?:string,title?:string,contact?:string,amount?:number|null,transactionTime?:string,transferRef?:string,senderName?:string,senderBank?:string,senderAccount?:string,receiverName?:string,receiverBank?:string,receiverAccount?:string,warnings?:string[]};
+export type DocumentData={multipleDocuments?:boolean,payroll?:PayrollExtracted|null,billDetails?:BillDetails|null,documentType?:string,documentNo?:string,date?:string,due?:string,title?:string,contact?:string,amount?:number|null,transactionTime?:string,transferRef?:string,senderName?:string,senderBank?:string,senderAccount?:string,receiverName?:string,receiverBank?:string,receiverAccount?:string,warnings?:string[]};
 export type LineDocument={id:string,file_id:string,mime:string,file_size:number,status:string,extracted:DocumentData,last_error?:string,created_at:string,confirmed_target?:string,duplicate_of?:string};
 export type ImportFields={billDetails?:BillDetails|null,withholding?:WithholdingTax|null,paymentMethod:string,expenseAccountType:string,documentType:string,type:string,date:string,due:string,title:string,contact:string,amount:string,account:string,to:string,category:string,documentNo:string,transferRef:string,transactionTime:string,debtId:string,senderName:string,senderBank:string,senderAccount:string,receiverName:string,receiverBank:string,receiverAccount:string};
 export function suggestImport(s:State,d:LineDocument):ImportFields{
@@ -12,12 +12,13 @@ export function suggestImport(s:State,d:LineDocument):ImportFields{
  return {paymentMethod:'',expenseAccountType:'shop',billDetails:x.billDetails?structuredClone(x.billDetails):undefined,documentType:x.documentType||'other',type:invoice?'receivable':sender&&receiver&&sender!==receiver?'transfer':receiver?'income':sender?'expense':'',date:x.date||today(),due:x.due||x.date||today(),title:x.title||'',contact:x.contact||'',amount:typeof x.amount==='number'?String(x.amount/100):'',account:sender||receiver||'',to:sender&&receiver?receiver:'',category:'อื่น ๆ',documentNo:x.documentNo||'',transferRef:x.transferRef||'',transactionTime:x.transactionTime||'',debtId:'',senderName:x.senderName||'',senderBank:x.senderBank||'',senderAccount:x.senderAccount||'',receiverName:x.receiverName||'',receiverBank:x.receiverBank||'',receiverAccount:x.receiverAccount||''};
 }
 export function importLineDocument(s:State,doc:LineDocument,f:ImportFields){
+ if(doc.extracted.multipleDocuments)throw Error('PDF นี้มีหลายเอกสาร / หลายพนักงาน กรุณาแยกไฟล์ก่อนนำเข้า');
  if(f.documentType==='payroll')throw Error('เอกสารเงินเดือนต้องนำเข้าผ่านแบบตรวจเงินเดือน ไม่ใช่รายการจ่ายเงินทั่วไป');
  if(!['ready','needs_key','failed'].includes(doc.status)||!doc.file_size)throw Error('เอกสารยังไม่พร้อมหรือถูกยืนยันไปแล้ว');
  const amount=Math.round(Number(f.amount)*100);if(!Number.isSafeInteger(amount)||amount<=0)throw Error('กรุณาระบุยอดเงินให้ถูกต้อง');
  validateBillDetails(f.billDetails,amount,f.type);
  if(!f.title.trim())throw Error('กรุณาระบุรายละเอียดรายการ');
- const n=structuredClone(s),file={id:doc.file_id,name:'LINE-'+doc.id+'.'+(doc.mime==='image/png'?'png':doc.mime==='image/webp'?'webp':'jpg'),mime:doc.mime,size:doc.file_size};
+ const n=structuredClone(s),file={id:doc.file_id,name:'LINE-'+doc.id+'.'+(doc.mime==='application/pdf'?'pdf':doc.mime==='image/png'?'png':doc.mime==='image/webp'?'webp':'jpg'),mime:doc.mime,size:doc.file_size};
  if(n.entries.some(e=>e.id===doc.id)||n.debts.some(e=>e.id===doc.id))throw Error('เอกสารนี้บันทึกแล้ว');
  const isDebt=['receivable','payable'].includes(f.type);
  if(f.documentType==='invoice'&&!isDebt)throw Error('ใบแจ้งหนี้ต้องบันทึกเป็นลูกหนี้หรือเจ้าหนี้ ยังไม่ใช่หลักฐานรับ–จ่ายเงิน');
