@@ -12,7 +12,7 @@
     "Test signup confirmation delivery and password-reset delivery with a real user request"
   ],
   "verification": {
-    "client_financial_tests": 15,
+    "client_financial_tests": 18,
     "build": "passed",
     "database_rls": "passed with rollback",
     "concurrent_revision": "passed",
@@ -25,7 +25,9 @@
     "contacts_ui": "passed using isolated sample data",
     "line_sql": "passed with rollback: create/update/delete, minimal payloads, filters, pause, restore suppression, exclusive claims and worker privileges",
     "line_ui": "passed using isolated sample data",
-    "line_cron_worker": "fixed sample message accepted by LINE through scheduled Edge worker"
+    "line_cron_worker": "fixed sample message accepted by LINE through scheduled Edge worker",
+    "bank_slip_ui": "passed with isolated fixtures: account selection, bank defaults, time editing, receipt upload/preview and reopening",
+    "bank_slip_storage": "passed RPC metadata round trip with rollback; current LINE scope unchanged"
   },
   "replit_used": false,
   "auth_callback_url_configured": true,
@@ -67,5 +69,25 @@
     "historical_replay": false,
     "cron": "every minute",
     "authorization": "User requested continuation immediately after explicit disclosure scope and group were stated"
+  },
+  "bank_accounts": {
+    "details_enabled": true,
+    "fields": [
+      "kind",
+      "bankName",
+      "accountHolder",
+      "accountNumber"
+    ],
+    "statement": "all-time incoming/outgoing/running balance per account, includes internal transfers",
+    "private_holder_suggestions_count": 2
+  },
+  "bank_slips": {
+    "enabled_in_private_app": true,
+    "manual_fields": true,
+    "automatic_ocr": false,
+    "automatic_bank_verification": false,
+    "duplicate_reference_check": true,
+    "line_bank_details_and_images_enabled": false,
+    "pending_reason": "Automatic approval review requires explicit approval to send bank/party details and slip images to the LINE admin group"
   }
 }

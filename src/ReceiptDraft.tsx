@@ -1,0 +1,2 @@
+import {useEffect,useState} from 'react';
+export default function ReceiptDraft({file}:{file:File|null}){const [url,Url]=useState('');useEffect(()=>{if(!file||!file.type.startsWith('image/')){Url('');return;}const u=URL.createObjectURL(file);Url(u);return ()=>URL.revokeObjectURL(u)},[file]);return url?<div className="receipt-draft"><small>ภาพสลิปที่เลือก • ตรวจข้อมูลก่อนบันทึก</small><img src={url} alt="ภาพสลิปก่อนบันทึก"/></div>:null;}

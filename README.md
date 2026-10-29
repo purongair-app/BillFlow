@@ -112,3 +112,13 @@ npm run build
 - Verification: 15 automated tests and production build pass; rollback tests cover add/edit/delete, minimal payloads, type selection, pause, restored-history suppression, exclusive queue claims and worker privileges. The cron + Edge worker sent a fixed sample message successfully to LINE. No test financial record persisted.
 - LINE API acceptance does not prove that every group member received or read a message. Delivery depends on LINE quota and group membership.
 - This GitHub application does not use Replit.
+
+## Bank accounts and slip evidence
+
+- บัญชีเงิน supports account kind, bank, holder and account/PromptPay number. Owner-provided holder suggestions are stored inside the private ledger payload, not in public client code. Real account numbers and starting balances were not invented or changed.
+- Account cards show all-time inflows/outflows and current balance. Account statements include internal transfers and preserve the full running balance when filtered.
+- Transactions support time, transfer reference and both sender/receiver bank details. Selecting the shop account fills its side while keeping the counterparty. Duplicate references per originating bank are rejected.
+- Receipt upload supports private original files, image preview and JPEG derivatives. The app opens signed receipt URLs only after owner authentication. Detail views and monthly cashbooks can open attached evidence.
+- Slip review status is a manual bookkeeping status; it is not automated bank verification. No OCR service was added. Old records/backups remain compatible.
+- Tests: 18 automated checks and production build; isolated UI tests exercised account selection/defaults, time edits, upload/preview/reopening. Server JSON metadata round-trip was verified in a rolled-back transaction. No example financial entries or bank accounts were persisted in the user's ledger.
+- Expanded LINE bank/party/slip templates are prepared in *.bank.pending.ts and bank-slip-notifications.pending.sql ONLY. Automatic approval review rejected the expanded disclosure scope, so these files are not deployed/applied. Existing LINE alerts retain their previously approved fields. Obtain explicit consent for names, banks, masked account tails, transfer time/reference and slip images to BillFlow | ห้องแอดมิน before deploying the pending extension.
