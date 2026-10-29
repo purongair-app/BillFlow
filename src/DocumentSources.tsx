@@ -1,0 +1,10 @@
+import {useState} from 'react';
+import {Pencil,X} from 'lucide-react';
+import type {State} from './money';
+
+export default function DocumentSources({state,busy,onSave,onClose}:{state:State,busy:boolean,onSave:(s:State,text:string)=>Promise<boolean>,onClose:()=>void}){
+ const [editing,Edit]=useState(''),[name,Name]=useState(''),[error,ErrorText]=useState('');
+ const sources=state.documentSources||[];
+ async function submit(e:React.FormEvent){e.preventDefault();const value=name.trim();if(!value||sources.some(x=>x.id!==editing&&x.name.toLowerCase()===value.toLowerCase())){ErrorText('กรุณาระบุชื่อระบบที่ไม่ซ้ำ');return;}const n=structuredClone(state);n.documentSources=editing?sources.map(x=>x.id===editing?{...x,name:value}:x):[...sources,{id:crypto.randomUUID(),name:value}];if(await onSave(n,(editing?'แก้ไข':'เพิ่ม')+'ระบบเอกสาร '+value)){Edit('');Name('');ErrorText('');}}
+ return <div className="modal-overlay employee-overlay"><section className="modal" role="dialog" aria-modal="true" aria-labelledby="sources-title"><div className="section-head"><h2 id="sources-title">จัดการระบบเอกสารต้นทาง</h2><button type="button" aria-label="กลับไปแบบฟอร์ม" disabled={busy} onClick={onClose}><X size={20}/></button></div><form className="modal-form" onSubmit={submit}><label>{editing?'แก้ไขชื่อระบบ':'เพิ่มชื่อระบบโปรแกรม'}<input value={name} onChange={e=>Name(e.target.value)} maxLength={150} required placeholder="เช่น PUROnGAIR, โปรแกรมบัญชี, เอกสารเขียนมือ"/></label>{error&&<div className="error" role="alert">{error}</div>}<div className="tools"><button className="primary" disabled={busy}>{editing?'บันทึกการแก้ไข':'เพิ่มระบบ'}</button>{editing&&<button type="button" disabled={busy} onClick={()=>{Edit('');Name('');ErrorText('');}}>ยกเลิกแก้ไข</button>}</div></form><div className="pad">{sources.length?sources.map(x=><div className="debt-row" key={x.id}><div>{x.name}</div><button type="button" disabled={busy} aria-label={'แก้ไขระบบ '+x.name} onClick={()=>{Edit(x.id);Name(x.name);ErrorText('');}}><Pencil size={16}/> แก้ไข</button></div>):<p>ยังไม่มีระบบเอกสาร เพิ่มชื่อด้านบนเพื่อเลือกใช้ได้เลย</p>}</div></section></div>;
+}

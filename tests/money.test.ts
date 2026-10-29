@@ -1,7 +1,34 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+
+import {accountDeletionReason,removeAccount} from '../src/banking.ts';
+test('account deletion preserves entries, balances, and the last account',()=>{
+ const s=initialState();s.entries=[entry({type:'transfer',to:'bank',amount:10000})];
+ for(const id of ['cash','bank']){assert.ok(accountDeletionReason(s,id));assert.throws(()=>removeAccount(s,id));}
+ s.entries=[];s.accounts[1].opening=10000;assert.throws(()=>removeAccount(s,'bank'));
+ s.accounts[1].opening=0;const n=removeAccount(s,'bank');validateState(n);assert.equal(n.accounts.length,1);assert.equal(s.accounts.length,2);assert.throws(()=>removeAccount(n,'cash'));assert.throws(()=>removeAccount(s,'missing'));
+});
+import {upsertDebt} from '../src/debts.ts';
 import {initialState,balance,remaining,validateState,type Entry} from '../src/money.ts';
 function entry(overrides:Partial<Entry>={}):Entry{return {id:crypto.randomUUID(),type:'income',date:'2026-10-29',title:'ค่าล้างแอร์',amount:120050,account:'cash',category:'ค่าบริการ',contact:'',note:'',...overrides};}
+test('debt bill references and source rename survive JSON roundtrip with customer links',()=>{
+ const s=initialState();s.contacts=[{id:'c1',code:'CT001',name:'ลูกค้า ก',note:'',active:true}];s.documentSources=[{id:'source1',name:'PUROnGAIR'}];
+ s.debts=upsertDebt(s,{id:'d1',type:'receivable',name:'ลูกค้า ก',contactId:'c1',billReference:'INV-2569/001',documentSourceId:'source1',title:'ติดตั้งแอร์',amount:500000,due:'2026-11-01'});
+ const restored=JSON.parse(JSON.stringify(s));validateState(restored);assert.equal(restored.debts[0].billReference,'INV-2569/001');
+ restored.documentSources[0].name='โปรแกรมร้านแอร์';validateState(restored);assert.equal(restored.debts[0].documentSourceId,'source1');
+ assert.equal(contactUsageCount(restored,'c1'),1);restored.contacts=[];assert.throws(()=>validateState(restored));
+});
+test('editing a partly paid debt retains payments and blocks reductions below paid total or type changes',()=>{
+ const s=initialState();s.debts=[{id:'d1',type:'receivable',name:'ลูกค้า',title:'ติดตั้งแอร์',amount:500000,due:'2026-11-01'}];s.entries=[entry({amount:100000,debtId:'d1'})];
+ s.debts=upsertDebt(s,{...s.debts[0],amount:450000,billReference:'INV-2'});assert.equal(s.debts.length,1);assert.equal(remaining(s,s.debts[0]),350000);assert.equal(s.entries[0].debtId,'d1');
+ assert.throws(()=>upsertDebt(s,{...s.debts[0],amount:99999}));assert.throws(()=>upsertDebt(s,{...s.debts[0],type:'payable'}));
+ s.debts=upsertDebt(s,{...s.debts[0],amount:100000});assert.equal(remaining(s,s.debts[0]),0);
+});
+test('legacy debts remain valid while invalid source references and duplicate source names are rejected',()=>{
+ const s=initialState();s.debts=[{id:'d1',type:'payable',name:'ร้านอะไหล่',title:'อะไหล่',amount:50000,due:'2026-11-01'}];delete s.documentSources;validateState(s);
+ s.debts[0].documentSourceId='missing';assert.throws(()=>validateState(s));delete s.debts[0].documentSourceId;
+ s.documentSources=[{id:'s1',name:'POS'},{id:'s2',name:'pos'}];assert.throws(()=>validateState(s));
+});
 test('cash transfer preserves total and is not income',()=>{const s=initialState();s.accounts[0].opening=100000;s.entries=[entry(),entry({type:'expense',amount:20050}),entry({type:'transfer',amount:50000,to:'bank'})];validateState(s);assert.equal(balance(s,'cash'),150000);assert.equal(balance(s,'bank'),50000);assert.equal(balance(s,'cash')+balance(s,'bank'),200000);s.entries=s.entries.filter(e=>e.type!=='transfer');assert.equal(balance(s,'cash'),200000);assert.equal(balance(s,'bank'),0);});
 test('partial debt payments and overpayment rejection',()=>{const s=initialState();s.debts=[{id:'d1',type:'receivable',name:'ลูกค้า',title:'ติดตั้งแอร์',amount:100000,due:'2026-11-01'}];s.entries=[entry({amount:35000,debtId:'d1'})];validateState(s);assert.equal(remaining(s,s.debts[0]),65000);s.entries.push(entry({amount:65000,debtId:'d1'}));validateState(s);assert.equal(remaining(s,s.debts[0]),0);s.entries.push(entry({amount:1,debtId:'d1'}));assert.throws(()=>validateState(s));});
 test('invalid ledger rejects same-account transfer, fractional cents and impossible dates',()=>{for(const data of [{type:'transfer' as const,to:'cash'},{amount:10.1},{date:'2026-02-30'},{account:'other'}]){const s=initialState();s.entries=[entry(data)];assert.throws(()=>validateState(s));}});
@@ -31,11 +58,3 @@ import {lineMessages,receiptPaths,notificationText as bankNotificationText} from
 test('multiple bank accounts reconcile receipts, supplier payments and internal transfers independently',()=>{const s=initialState();s.accounts=[{id:'a',name:'บัญชีรับบริการ',opening:100000,kind:'bank',bankName:'ธนาคาร ก',accountNumber:'111-00001'},{id:'b',name:'บัญชีจ่ายสินค้า',opening:200000,kind:'bank',bankName:'ธนาคาร ข',accountNumber:'222-00002'}];s.entries=[entry({id:'in',account:'a',amount:500000,transactionTime:'17:22',senderName:'ลูกค้าตัวอย่าง',receiverBank:'ธนาคาร ก',transferRef:'REF-A'}),entry({id:'out',type:'expense',account:'b',amount:14500,transactionTime:'13:17'}),entry({id:'tr',type:'transfer',account:'a',to:'b',amount:50000})];validateState(s);const a=accountStatement(s,'a'),b=accountStatement(s,'b');assert.deepEqual([a.incoming,a.outgoing,a.closing],[500000,50000,550000]);assert.deepEqual([b.incoming,b.outgoing,b.closing],[50000,14500,235500]);assert.equal(a.closing, balance(s,'a'));assert.equal(b.closing,balance(s,'b'));assert.match(accountLabel(s.accounts[0]),/ธนาคาร ก/);assert.doesNotMatch(accountLabel(s.accounts[0]),/111-00001/);const def=bankDefaults('income',s.accounts[0]);assert.equal(def.senderBank,'');assert.equal(def.receiverBank,'ธนาคาร ก');assert.equal(bankDefaults('expense',s.accounts[1]).senderBank,'ธนาคาร ข');});
 test('slip time, duplicate references and optional legacy account details validate safely',()=>{const s=initialState();validateState(s);s.entries=[entry({transactionTime:'25:99'})];assert.throws(()=>validateState(s),/เวลาโอน/);s.entries=[entry({transferRef:'ref123',senderBank:'ธนาคาร ก'}),entry({transferRef:'REF123',senderBank:'ธนาคาร ก'})];assert.throws(()=>validateState(s),/อ้างอิงการโอนซ้ำ/);s.entries[1].senderBank='ธนาคาร ข';validateState(s);s.entries[1].file={id:'00000000-0000-4000-8000-000000000001',name:'slip.png',mime:'image/png',previewId:'../other-owner'};assert.throws(()=>validateState(s));});
 test('LINE bank receipts include time, parties and masked accounts; image messages stay owner-scoped',()=>{const q={id:'q',action:'create',owner:'00000000-0000-4000-8000-000000000010',business:'ร้านตัวอย่าง',accounts:[{id:'bank',name:'บัญชีรับบริการ',bankName:'ธนาคาร ก',accountNumber:'1234567890'}],entry:{id:'entry-one',type:'income',date:'2026-10-29',transactionTime:'17:22',title:'ค่าบริการ',amount:500000,account:'bank',contact:'ลูกค้าตัวอย่าง',senderName:'ผู้โอนตัวอย่าง',senderBank:'ธนาคาร ข',senderAccount:'9876543210',transferRef:'REF999',file:{id:'00000000-0000-4000-8000-000000000001',name:'slip.png',mime:'image/png',previewId:'00000000-0000-4000-8000-000000000002'},slipReview:'pending'}};const text=bankNotificationText(q);assert.match(text,/17:22/);assert.match(text,/ลูกค้าตัวอย่าง/);assert.match(text,/ผู้โอนตัวอย่าง/);assert.match(text,/5,000.00/);assert.match(text,/•••• 7890/);assert.doesNotMatch(text,/1234567890|9876543210/);assert.equal(receiptPaths(q)?.original,q.owner+'/'+q.entry.file.id);assert.equal(lineMessages(q,{original:'https://example.com/original',preview:'https://example.com/preview'}).length,2);assert.equal(lineMessages({...q,action:'delete'}).length,1);assert.equal(receiptPaths({...q,owner:'../other'}),null);assert.equal(receiptPaths({...q,entry:{...q.entry,file:{...q.entry.file,mime:'application/pdf',name:'bill.pdf'}}}),null);assert.throws(()=>lineMessages(q,{original:'http://unsafe',preview:'https://example.com/p'}));});
-
-import {accountDeletionReason,removeAccount} from '../src/banking.ts';
-test('account deletion preserves entries, balances, and the last account',()=>{
- const s=initialState();s.entries=[entry({type:'transfer',to:'bank',amount:10000})];
- for(const id of ['cash','bank']){assert.ok(accountDeletionReason(s,id));assert.throws(()=>removeAccount(s,id));}
- s.entries=[];s.accounts[1].opening=10000;assert.throws(()=>removeAccount(s,'bank'));
- s.accounts[1].opening=0;const n=removeAccount(s,'bank');validateState(n);assert.equal(n.accounts.length,1);assert.equal(s.accounts.length,2);assert.throws(()=>removeAccount(n,'cash'));assert.throws(()=>removeAccount(s,'missing'));
-});
