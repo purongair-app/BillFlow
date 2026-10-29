@@ -27,4 +27,18 @@ begin
  begin perform public.billflow_manage_members('save',boss_email,'owner','{}','{}',false);raise exception 'OWNER_REMOVED';exception when others then if sqlerrm<>'CANNOT_CHANGE_OWNER' then raise;end if;end;
  reset role;
 end $$;
+do $$
+declare boss uuid; worker uuid; worker_email text; rows jsonb; row_data jsonb;
+begin
+ select owner into boss from billflow_private.workspace where id=1;
+ select id,email into worker,worker_email from auth.users where id<>boss and email_confirmed_at is not null limit 1;
+ if worker is null then raise exception 'NO_CONFIRMED_TEST_ACCOUNT';end if;
+ perform set_config('request.jwt.claim.sub',boss::text,true);set local role authenticated;
+ rows:=public.billflow_manage_members_v2('save',worker_email,'QA roles',array['people'],'{}',true,'manager');
+ select x into row_data from jsonb_array_elements(rows) x where x->>'id'=worker::text;
+ if row_data->>'role'<>'manager' or jsonb_array_length(row_data->'editMenus')<>0 or row_data->'menus'<>'["people"]'::jsonb then raise exception 'ROLE_GRANTED_EXTRA_RIGHTS';end if;
+ reset role;perform set_config('request.jwt.claim.sub',worker::text,true);set local role authenticated;
+ begin perform public.billflow_manage_members_v2('list');raise exception 'MANAGER_ADMIN_ESCALATION';exception when others then if sqlerrm<>'OWNER_ONLY' then raise;end if;end;
+ reset role;
+end $$;
 rollback;

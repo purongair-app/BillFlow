@@ -1,7 +1,9 @@
+export const roleLabels={manager:'ผู้จัดการ',shop_admin:'แอดมินร้าน',employee:'พนักงานทั่วไป'};
+export type MemberRole=keyof typeof roleLabels;
 export const menuOptions=[['overview','ภาพรวม'],['entries','รายการรับ–จ่าย'],['cashbook','สมุดบัญชี'],['accounts','บัญชีเงิน'],['people','รายชื่อ / ผู้ติดต่อ'],['debts','ลูกหนี้ / เจ้าหนี้'],['budgets','งบประมาณ'],['reports','รายงาน']] as const;
 export const editableMenus=['entries','accounts','people','debts','budgets'];
 export type Access={owner:boolean,workspaceOwner:string,menus:string[],editMenus:string[]};
-export type Member={id:string,email:string,name:string,menus:string[],editMenus:string[],enabled:boolean,updatedAt:string};
+export type Member={role:MemberRole,id:string,email:string,name:string,menus:string[],editMenus:string[],enabled:boolean,updatedAt:string};
 export const noAccess:Access={owner:false,workspaceOwner:'',menus:[],editMenus:[]};
 export const canView=(a:Access,menu:string)=>a.owner||a.menus.includes(menu);
 export const canEdit=(a:Access,menu:string)=>a.owner||a.editMenus.includes(menu);
