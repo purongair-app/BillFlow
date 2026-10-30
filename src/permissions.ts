@@ -2,8 +2,8 @@ export const roleLabels={manager:'ผู้จัดการ',shop_admin:'แ�
 export type MemberRole=keyof typeof roleLabels;
 export const menuOptions=[['overview','ภาพรวม'],['entries','รายการรับ–จ่าย'],['cashbook','สมุดบัญชี'],['accounts','บัญชีเงิน'],['people','รายชื่อ / ผู้ติดต่อ'],['debts','ลูกหนี้ / เจ้าหนี้'],['payroll','เงินเดือน'],['budgets','รายจ่ายประจำ'],['reports','รายงาน'],['inbox','เอกสารจาก LINE']] as const;
 export const editableMenus=['inbox','payroll','entries','accounts','people','debts','budgets'];
-export type Access={owner:boolean,workspaceOwner:string,menus:string[],editMenus:string[]};
-export type Member={role:MemberRole,id:string,email:string,name:string,menus:string[],editMenus:string[],enabled:boolean,updatedAt:string};
+export type Access={owner:boolean,workspaceOwner:string,menus:string[],editMenus:string[],accountIds?:string[]|null};
+export type Member={role:MemberRole,id:string,email:string,name:string,menus:string[],editMenus:string[],enabled:boolean,accountIds?:string[]|null,updatedAt:string};
 export const noAccess:Access={owner:false,workspaceOwner:'',menus:[],editMenus:[]};
 export const canView=(a:Access,menu:string)=>(menu==='profile'||menu==='help')||a.owner||a.menus.includes(menu);
 export const canEdit=(a:Access,menu:string)=>a.owner||a.editMenus.includes(menu);
