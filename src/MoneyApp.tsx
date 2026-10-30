@@ -88,13 +88,15 @@ function voiceMenu(text:string){
  return matches.length===1?matches[0]:undefined;
 }
 function VoiceMenu({access,disabled,onNavigate,page}:{access:Access,disabled:boolean,onNavigate:(menu:string)=>boolean,page:string}){
- const [listening,SetListening]=useState(false),[message,SetMessage]=useState(''),[heard,SetHeard]=useState('');
+ const [listening,SetListening]=useState(false),[message,SetMessage]=useState(''),[heard,SetHeard]=useState(''),[seconds,SetSeconds]=useState(45);
+ const endsAt=useRef(0);
  const current=useRef<MenuSpeechRecognition|null>(null),timer=useRef<ReturnType<typeof setTimeout>|null>(null);
  const latest=useRef({access,disabled,onNavigate});latest.current={access,disabled,onNavigate};
- function stop(){const speech=current.current;current.current=null;if(timer.current)clearTimeout(timer.current);if(speech){speech.onstart=null;speech.onend=null;speech.onresult=null;speech.onerror=null;speech.abort();}SetListening(false);}
+ function stop(){endsAt.current=0;const speech=current.current;current.current=null;if(timer.current)clearTimeout(timer.current);if(speech){speech.onstart=null;speech.onend=null;speech.onresult=null;speech.onerror=null;speech.abort();}SetListening(false);}
  useEffect(()=>{const hidden=()=>{if(document.hidden){stop();SetMessage('หยุดฟังเมื่อซ่อนหน้าจอแล้ว')}};document.addEventListener('visibilitychange',hidden);return()=>{document.removeEventListener('visibilitychange',hidden);const speech=current.current;current.current=null;if(timer.current)clearTimeout(timer.current);if(speech){speech.onstart=null;speech.onend=null;speech.onresult=null;speech.onerror=null;speech.abort()}}},[]);
  useEffect(()=>{if(disabled){stop();}},[disabled]);
  useEffect(()=>{stop()},[page]);
+ useEffect(()=>{if(!listening)return;const tick=()=>SetSeconds(Math.max(0,Math.ceil((endsAt.current-Date.now())/1000)));tick();const interval=setInterval(tick,250);return()=>clearInterval(interval)},[listening]);
  function navigate(menu:string,text:string){if(latest.current.disabled){SetMessage('ระบบกำลังทำรายการ กรุณาลองอีกครั้ง');return;}if(!canView(latest.current.access,menu)){SetMessage('ได้ยินว่า “'+text+'” แต่คุณยังไม่มีสิทธิ์เข้าถึงเมนูนี้');return;}const label=nav.find(([key])=>key===menu)?.[1]||menu;const moved=latest.current.onNavigate(menu);SetMessage(moved?'ได้ยินว่า “'+text+'” → เปิดเมนู '+label+' แล้ว':'ยกเลิกการเปลี่ยนหน้าแล้ว');}
 
  function start(){
@@ -104,20 +106,20 @@ function VoiceMenu({access,disabled,onNavigate,page}:{access:Access,disabled:boo
  const Recognition=browser.SpeechRecognition||browser.webkitSpeechRecognition;
  if(!Recognition){SetMessage('เบราว์เซอร์นี้ยังไม่รองรับคำสั่งเสียง กรุณาลองใช้ Chrome หรือเลือกเมนูตามปกติ');return;}
  if(!window.isSecureContext){SetMessage('กรุณาเปิดเว็บผ่าน HTTPS เพื่อใช้ไมโครโฟน');return;}
- const speech=new Recognition();current.current=speech;speech.lang='th-TH';speech.continuous=false;speech.interimResults=true;speech.maxAlternatives=3;let received=false;const deadline=Date.now()+45000;
+ const speech=new Recognition();current.current=speech;speech.lang='th-TH';speech.continuous=false;speech.interimResults=true;speech.maxAlternatives=3;let received=false;let deadline=0;endsAt.current=0;SetSeconds(45);
  SetHeard('');SetMessage('กำลังเปิดไมโครโฟน… พูดชื่อเมนู เช่น เปิดเงินเดือน');
- speech.onstart=()=>{SetListening(true);SetMessage('กำลังฟัง… รอคำสั่งได้ 45 วินาที เช่น เปิดเงินเดือน');if(timer.current)clearTimeout(timer.current);timer.current=setTimeout(()=>{stop();SetMessage('หมดเวลารับคำสั่ง กดไมโครโฟนเพื่อลองใหม่')},Math.max(1000,deadline-Date.now()))};
+ speech.onstart=()=>{if(!deadline)deadline=Date.now()+45000;endsAt.current=deadline;SetListening(true);SetMessage('กำลังฟัง… รอคำสั่งได้ 45 วินาที เช่น เปิดเงินเดือน');if(timer.current)clearTimeout(timer.current);timer.current=setTimeout(()=>{stop();SetMessage('หมดเวลารับคำสั่ง กดไมโครโฟนเพื่อลองใหม่')},Math.max(1000,deadline-Date.now()))};
  speech.onresult=event=>{const results=Array.from(event.results);const result=results.find(item=>item.isFinal!==false)||results[results.length-1];const alternatives=Array.from(result||[]).map(x=>x.transcript);const text=alternatives[0]||'';SetHeard(text);
  if(result?.isFinal===false){SetMessage('ได้ยินว่า “'+text+'” กำลังรับคำสั่ง…');return;}
- received=true;const menu=alternatives.map(voiceMenu).find(Boolean);stop();
- if(!menu){SetMessage('ได้ยินว่า “'+text+'” กรุณาพูดชื่อเมนูให้ชัด หรือแก้ข้อความด้านล่างแล้วกด เปิดเมนู');return;}
- navigate(menu,text);
+ const menu=alternatives.map(voiceMenu).find(Boolean);
+ if(!menu){received=false;SetMessage('ได้ยินว่า “'+text+'” ยังจับคู่เมนูไม่ได้ กำลังฟังต่อ ลองพูดชื่อเมนูอีกครั้ง หรือแก้ข้อความด้านล่าง');return;}
+ received=true;stop();navigate(menu,text);
  };
  speech.onerror=event=>{if(event.error==='no-speech'&&Date.now()<deadline){SetMessage('ยังฟังอยู่ครับ พูดชื่อเมนูได้เลย');return;}received=true;const errors:Record<string,string>={'not-allowed':'กรุณาอนุญาตไมโครโฟนในเบราว์เซอร์ แล้วลองอีกครั้ง','service-not-allowed':'บริการรู้จำเสียงยังไม่พร้อมใช้งานในเบราว์เซอร์นี้','audio-capture':'ไม่พบไมโครโฟน กรุณาตรวจการเชื่อมต่อ','no-speech':'ยังไม่ได้ยินเสียง กรุณาลองพูดอีกครั้ง','network':'เชื่อมบริการรู้จำเสียงไม่ได้ กรุณาตรวจอินเทอร์เน็ต','language-not-supported':'เบราว์เซอร์นี้ยังไม่รองรับการรู้จำเสียงภาษาไทย'};stop();SetMessage(errors[event.error]||'รับคำสั่งเสียงไม่สำเร็จ กรุณาลองใหม่')};
  speech.onend=()=>{if(current.current!==speech)return;if(!received&&Date.now()<deadline&&!document.hidden&&!latest.current.disabled){try{speech.start();return;}catch{}}current.current=null;if(timer.current)clearTimeout(timer.current);SetListening(false);if(!received)SetMessage('ครบเวลารอคำสั่งแล้ว กดไมโครโฟนเพื่อลองใหม่ หรือพิมพ์ชื่อเมนูด้านล่าง')};
  try{speech.start()}catch{stop();SetMessage('เปิดไมโครโฟนไม่ได้ กรุณาตรวจสิทธิ์ไมโครโฟนแล้วลองใหม่')}
  }
- return <div className="voice-navigation"><button type="button" className={listening?'voice-menu-button listening':'voice-menu-button'} disabled={disabled} aria-pressed={listening} onClick={start} title="กดแล้วพูดชื่อเมนู เช่น เปิดเงินเดือน · ใช้บริการรู้จำเสียงของเบราว์เซอร์">{listening?<MicOff size={17}/>:<Mic size={17}/>}<span>{listening?'หยุดฟัง':'สั่งด้วยเสียง'}</span></button>{message&&<div className="voice-menu-panel"><div role="status" aria-live="polite">{message}</div><label className="voice-transcript">คำสั่งที่ได้ยิน / พิมพ์ชื่อเมนู<input type="text" value={heard} placeholder="เช่น เปิดเงินเดือน" onChange={event=>SetHeard(event.target.value)} onKeyDown={event=>{const menu=voiceMenu(heard);if(event.key==='Enter'&&menu){event.preventDefault();stop();navigate(menu,heard)}}}/></label><button type="button" disabled={!voiceMenu(heard)||disabled} onClick={()=>{const menu=voiceMenu(heard);if(menu){stop();navigate(menu,heard)}}}>เปิดเมนู{voiceMenu(heard)?' '+(nav.find(([key])=>key===voiceMenu(heard))?.[1]||''):''}</button><small>ตัวอย่าง: “เปิดเงินเดือน” “สมุดบัญชี” “ไปหน้าหลัก”<br/>รู้จำเสียงผ่านบริการของเบราว์เซอร์ ซึ่งอาจส่งเสียงไปประมวลผลออนไลน์</small><button type="button" onClick={()=>{stop();SetMessage('')}}>ปิด</button></div>}</div>;
+ return <div className="voice-navigation"><button type="button" className={listening?'voice-menu-button listening':'voice-menu-button'} disabled={disabled} aria-pressed={listening} onClick={start} title="กดแล้วพูดชื่อเมนู เช่น เปิดเงินเดือน · ใช้บริการรู้จำเสียงของเบราว์เซอร์">{listening?<MicOff size={17}/>:<Mic size={17}/>}<span>{listening?'หยุดฟัง ('+seconds+' วิ)':current.current?'ยกเลิกการเปิดไมค์':'สั่งด้วยเสียง'}</span></button>{message&&<div className="voice-menu-panel"><div role="status" aria-live="polite">{message}</div>{listening&&<div className="voice-countdown"><span>เหลือเวลาฟัง {seconds} วินาที</span><progress aria-label="เวลารอฟังคำสั่งที่เหลือ" value={seconds} max={45}/></div>}<label className="voice-transcript">คำสั่งที่ได้ยิน / พิมพ์ชื่อเมนู<input type="text" value={heard} placeholder="เช่น เปิดเงินเดือน" onChange={event=>SetHeard(event.target.value)} onKeyDown={event=>{const menu=voiceMenu(heard);if(event.key==='Enter'&&menu){event.preventDefault();stop();navigate(menu,heard)}}}/></label><button type="button" disabled={!voiceMenu(heard)||disabled} onClick={()=>{const menu=voiceMenu(heard);if(menu){stop();navigate(menu,heard)}}}>เปิดเมนู{voiceMenu(heard)?' '+(nav.find(([key])=>key===voiceMenu(heard))?.[1]||''):''}</button><small>ตัวอย่าง: “เปิดเงินเดือน” “สมุดบัญชี” “ไปหน้าหลัก”<br/>รู้จำเสียงผ่านบริการของเบราว์เซอร์ ซึ่งอาจส่งเสียงไปประมวลผลออนไลน์</small><button type="button" onClick={()=>{stop();SetMessage('')}}>ปิด</button></div>}</div>;
 }
 
 function weatherAppearance(code:string){
@@ -290,6 +292,7 @@ return <div className="app"><aside className={mobile?'sidebar visible':'sidebar'
 .voice-menu-button{min-height:44px}
 .voice-menu-button.listening{color:#b91c1c;border-color:#f1a4a4;background:#fff1f2}
 .voice-menu-panel{position:absolute;right:0;top:calc(100% + 8px);width:min(340px,calc(100vw - 32px));padding:16px;background:#fff;border:1px solid #d6e5dd;border-radius:12px;box-shadow:0 8px 30px #193d2726;z-index:4;font-size:13px;line-height:1.8;color:#294b3a}
+.voice-countdown{display:grid;gap:6px;margin:10px 0;color:#167158;font-size:12px}.voice-countdown progress{height:6px}
 .voice-transcript{font-size:12px;margin-top:10px}.voice-menu-panel .voice-transcript input{min-height:44px}
 .voice-menu-panel small{margin-top:8px;font-size:11px;line-height:1.7}
 .voice-menu-panel>button{margin-top:10px}
