@@ -1,3 +1,4 @@
+import {transferDetailsFromForm} from './transferDetails.ts';
 import {resolveContact,contactValue} from './contacts.ts';
 import type {PayrollExtracted} from './payrollImport.ts';
 import type {WithholdingTax} from './withholding.ts';
@@ -6,7 +7,7 @@ import {validateState,type State,type Entry,type Debt,today,remaining} from './m
 import {nextDocumentNo} from './accounting.ts';
 export type DocumentData={multipleDocuments?:boolean,payroll?:PayrollExtracted|null,billDetails?:BillDetails|null,documentType?:string,documentNo?:string,date?:string,due?:string,title?:string,contact?:string,amount?:number|null,transactionTime?:string,transferRef?:string,senderName?:string,senderBank?:string,senderAccount?:string,receiverName?:string,receiverBank?:string,receiverAccount?:string,warnings?:string[]};
 export type LineDocument={id:string,file_id:string,mime:string,file_size:number,status:string,extracted:DocumentData,last_error?:string,created_at:string,confirmed_target?:string,duplicate_of?:string};
-export type ImportFields={billDetails?:BillDetails|null,withholding?:WithholdingTax|null,paymentMethod:string,expenseAccountType:string,documentType:string,type:string,date:string,due:string,title:string,contact:string,amount:string,account:string,to:string,category:string,documentNo:string,transferRef:string,transactionTime:string,debtId:string,senderName:string,senderBank:string,senderAccount:string,receiverName:string,receiverBank:string,receiverAccount:string};
+export type ImportFields={payer?:string,note?:string,billDetails?:BillDetails|null,withholding?:WithholdingTax|null,paymentMethod:string,expenseAccountType:string,documentType:string,type:string,date:string,due:string,title:string,contact:string,amount:string,account:string,to:string,category:string,documentNo:string,transferRef:string,transactionTime:string,debtId:string,senderName:string,senderBank:string,senderAccount:string,receiverName:string,receiverBank:string,receiverAccount:string};
 export function suggestImport(s:State,d:LineDocument):ImportFields{
  const x=d.extracted||{};const match=(number?:string)=>{if(!number||!/^[\d\s-]+$/.test(number))return '';const digits=number.replace(/\D/g,'');if(digits.length<10)return '';const matches=s.accounts.filter(a=>a.accountNumber?.replace(/\D/g,'')===digits);return matches.length===1?matches[0].id:'';};
  const registered=resolveContact(x.contact||'',(s.contacts||[]).filter(c=>c.active));
@@ -25,6 +26,7 @@ export function importLineDocument(s:State,doc:LineDocument,f:ImportFields){
  if(f.documentType==='payroll')throw Error('เอกสารเงินเดือนต้องนำเข้าผ่านแบบตรวจเงินเดือน ไม่ใช่รายการจ่ายเงินทั่วไป');
  if(!['ready','needs_key','failed'].includes(doc.status)||!doc.file_size)throw Error('เอกสารยังไม่พร้อมหรือถูกยืนยันไปแล้ว');
  const amount=Math.round(Number(f.amount)*100);if(!Number.isSafeInteger(amount)||amount<=0)throw Error('กรุณาระบุยอดเงินให้ถูกต้อง');
+ if(f.type==='transfer')f={...f,title:'โอนระหว่างบัญชี',contact:'',debtId:'',billDetails:undefined,withholding:undefined,paymentMethod:''};
  validateBillDetails(f.billDetails,amount,f.type);
  if(!f.title.trim())throw Error('กรุณาระบุรายละเอียดรายการ');
  const n=structuredClone(s),file={id:doc.file_id,name:'LINE-'+doc.id+'.'+(doc.mime==='application/pdf'?'pdf':doc.mime==='image/png'?'png':doc.mime==='image/webp'?'webp':'jpg'),mime:doc.mime,size:doc.file_size};
@@ -44,6 +46,7 @@ export function importLineDocument(s:State,doc:LineDocument,f:ImportFields){
   if(!f.account)throw Error('กรุณาเลือกบัญชีของร้าน');
   const x=doc.extracted||{};if(f.paymentMethod&&!['cash','bank','card','other'].includes(f.paymentMethod))throw Error('กรุณาระบุวิธีชำระตามหลักฐาน');const entry:Entry={billDetails:f.billDetails,withholding:f.withholding,...(f.type==='expense'?{expenseAccountType:f.expenseAccountType as Entry['expenseAccountType']} : {}),id:doc.id,type:f.type as Entry['type'],date:f.date,title:f.title.trim(),amount,account:f.account,...(f.type==='transfer'?{to:f.to}:{}),category:f.type==='transfer'?'โอนภายใน':f.category,contact:contact.name,...(contact.id?{contactId:contact.id}:{}),note:'นำเข้าจากรูปในกลุ่ม LINE • ตรวจยืนยันโดยผู้มีสิทธิ์',documentNo:f.documentNo.trim()||nextDocumentNo(n,f.type as Entry['type'],f.date),file,transferRef:f.transferRef.trim(),transactionTime:f.transactionTime,slipReview:'reviewed',paymentMethod:(f.paymentMethod||undefined) as Entry['paymentMethod']};
   for(const k of ['senderName','senderBank','senderAccount','receiverName','receiverBank','receiverAccount'] as const)if(f[k])entry[k]=f[k].trim();
+  if(f.type==='transfer'){const data=new FormData();data.set('account',f.account);data.set('to',f.to);data.set('payer',f.payer||'');Object.assign(entry,transferDetailsFromForm(data,n));entry.note=f.note?.trim()||'';}
   if(f.debtId){const debt=n.debts.find(d=>d.id===f.debtId);if(!debt||entry.type!==(debt.type==='receivable'?'income':'expense'))throw Error('รายการหนี้ที่เลือกไม่ตรงกับการชำระ');entry.debtId=debt.id;}
   n.entries.push(entry);
  }
