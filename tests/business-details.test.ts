@@ -1,6 +1,11 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {businessNames,formatBusinessPhone,ssoBusinessDetails,validateBusinessDetails} from '../src/businessDetails.ts';
+test('tax identifier accepts an optional thirteen digit value and preserves leading zeros',()=>{
+ validateBusinessDetails({taxId:'0123456789012'});validateBusinessDetails({taxId:''});
+ for(const taxId of ['123','01234567890123','012345678901x'])assert.throws(()=>validateBusinessDetails({taxId}));
+ assert.equal(JSON.parse(JSON.stringify({taxId:'0123456789012'})).taxId,'0123456789012');
+});
 test('separates existing full establishment name without losing its proprietor',()=>{
  const old={business:'ร้านเพื่อนแอร์ เซอร์วิส โดยนายนิอาแซ ปุโรง'};
  assert.deepEqual(businessNames(old),{business:'ร้านเพื่อนแอร์ เซอร์วิส',establishmentName:old.business});
