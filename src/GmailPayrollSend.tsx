@@ -3,11 +3,12 @@ import {GmailDeliveryUnknown,gmailSendScope,gmailEmailScope,payrollGmailSender,s
 type TokenResponse={access_token?:string,expires_in?:number,error?:string,scope?:string};
 type GoogleOAuth={initTokenClient:(config:{client_id:string,scope:string,login_hint:string,include_granted_scopes:boolean,callback:(response:TokenResponse)=>void,error_callback:(error:{type:string})=>void})=>{requestAccessToken:(options:{prompt:string})=>void};hasGrantedAllScopes:(response:TokenResponse,...scopes:string[])=>boolean;revoke:(token:string,callback:()=>void)=>void};
 const oauth=()=>((window as unknown as {google?:{accounts?:{oauth2?:GoogleOAuth}}}).google?.accounts?.oauth2);
-const clientKey='billflow-gmail-client-id-v1';
+const clientKey='billflow-gmail-client-id-v2';
+const defaultClientId='334089630782-4ps6cdgoib7tgtcq0mc5693dksa43q9v.apps.googleusercontent.com';
 let loading:Promise<void>|undefined;
 function loadGoogle(){if(oauth())return Promise.resolve();if(loading)return loading;loading=new Promise<void>((resolve,reject)=>{const script=document.createElement('script');script.src='https://accounts.google.com/gsi/client';script.async=true;const timer=setTimeout(()=>{script.remove();loading=undefined;reject(Error('โหลดหน้าต่าง Google ไม่สำเร็จ กรุณาลองใหม่'))},15000);script.onload=()=>{clearTimeout(timer);if(oauth())resolve();else{loading=undefined;reject(Error('Google ยังไม่พร้อมใช้งาน'))}};script.onerror=()=>{clearTimeout(timer);script.remove();loading=undefined;reject(Error('เชื่อม Google ไม่ได้ กรุณาตรวจอินเทอร์เน็ต'))};document.head.appendChild(script)});return loading;}
 export default function GmailPayrollSend({pdf,filename,mailto,disabled,onSent}:{pdf:Blob,filename:string,mailto:string,disabled:boolean,onSent:()=>void}){
- const [client,Client]=useState(()=>{try{return localStorage.getItem(clientKey)||''}catch{return ''}}),[ready,Ready]=useState(false),[busy,Busy]=useState(false),[connected,Connected]=useState(false),[error,ErrorText]=useState(''),[result,Result]=useState(''),[unknown,Unknown]=useState(false);
+ const [client,Client]=useState(()=>{try{return localStorage.getItem(clientKey)||defaultClientId}catch{return defaultClientId}}),[ready,Ready]=useState(false),[busy,Busy]=useState(false),[connected,Connected]=useState(false),[error,ErrorText]=useState(''),[result,Result]=useState(''),[unknown,Unknown]=useState(false);
  const token=useRef<{value:string,expires:number}|null>(null),inFlight=useRef(false),alive=useRef(true);
  const recipient=decodeURIComponent(mailto.slice(7).split('?')[0]),params=new URLSearchParams(mailto.split('?')[1]),subject=params.get('subject')||'',text=params.get('body')||'';
  useEffect(()=>{alive.current=true;loadGoogle().then(()=>{if(alive.current)Ready(true)}).catch(e=>{if(alive.current)ErrorText(e.message)});return()=>{alive.current=false;token.current=null}},[]);
