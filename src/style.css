@@ -105,6 +105,24 @@
 .sso-access .button{display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border-radius:10px;text-decoration:none}.sso-access .tools{display:flex;flex-wrap:wrap;gap:8px}.sso-access label>button,.sso-access label>.tools{margin-top:8px}.sso-access input[type=password]{letter-spacing:2px}
 
 .sso-access-fields{border:0;margin:0;padding:0;min-width:0}.sso-access-fields:disabled{opacity:.65}
-.account-permission{border:1px solid #d7e5da;border-radius:12px;padding:18px;display:grid;gap:12px;min-width:0}.account-permission legend{font-weight:600;padding:0 8px}.account-permission .check-row{display:flex;align-items:center;gap:10px}.account-permission input[type=checkbox]{width:20px;height:20px;accent-color:#178468}
+/* Compact, left-aligned account access choices; override generic vertical form labels. */
+.account-permission{border:1px solid #d7e5da;border-radius:12px;padding:18px;display:grid;gap:14px;min-width:0}
+.account-permission legend{font-weight:600;padding:0 8px}
+.account-permission .account-permission-mode{max-width:460px;width:100%;text-align:left}
+.account-permission .permission-toolbar{align-items:center;gap:8px}
+.account-permission .permission-toolbar button{padding:8px 12px;font-size:13px;min-height:38px}
+.account-permission-count{margin-left:auto;color:#527362;font-size:12px;white-space:nowrap}
+.account-permission-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.account-permission label.account-permission-option{display:flex;flex-direction:row;align-items:center;justify-content:flex-start;gap:12px;margin:0;padding:12px 14px;min-height:66px;min-width:0;border:1px solid #dfe7e2;border-radius:10px;background:#fff;text-align:left;cursor:pointer;transition:background .15s,border-color .15s}
+.account-permission-option:hover{border-color:#8dbba9;background:#f8fbf9}
+.account-permission label.account-permission-option.is-selected{border-color:#64a48b;background:#eff8f3}
+.account-permission-option:focus-within{outline:2px solid #178468;outline-offset:2px}
+.account-permission .account-permission-option input[type=checkbox]{appearance:auto;width:18px;height:18px;min-width:18px;margin:0;padding:0;flex:0 0 18px;accent-color:#178468}
+.account-permission-copy{display:flex;flex-direction:column;align-items:flex-start;gap:4px;min-width:0;line-height:1.45}
+.account-permission-copy strong{font-size:14px;font-weight:600;overflow-wrap:anywhere}
+.account-permission-detail{display:flex;flex-wrap:wrap;align-items:center;gap:8px;color:#77887e;font-size:12px;line-height:1.4}
+.account-permission .muted{margin:0;font-size:12px;line-height:1.65}
+@media(max-width:760px){.account-permission{padding:14px;gap:12px}.account-permission-list{grid-template-columns:minmax(0,1fr)}.account-permission-count{margin-left:0;width:100%}.account-permission label.account-permission-option{padding:10px 12px;min-height:62px}}
+
 
 .sso-unsaved-status{color:#8a4b08;background:#fff7e8;padding:10px 12px;border-radius:8px}
