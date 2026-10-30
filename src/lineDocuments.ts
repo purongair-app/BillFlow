@@ -2,7 +2,7 @@ import {resolveContact,contactValue} from './contacts.ts';
 import type {PayrollExtracted} from './payrollImport.ts';
 import type {WithholdingTax} from './withholding.ts';
 import {validateBillDetails,type BillDetails} from './billDetails.ts';
-import {validateState,type State,type Entry,type Debt,today} from './money.ts';
+import {validateState,type State,type Entry,type Debt,today,remaining} from './money.ts';
 import {nextDocumentNo} from './accounting.ts';
 export type DocumentData={multipleDocuments?:boolean,payroll?:PayrollExtracted|null,billDetails?:BillDetails|null,documentType?:string,documentNo?:string,date?:string,due?:string,title?:string,contact?:string,amount?:number|null,transactionTime?:string,transferRef?:string,senderName?:string,senderBank?:string,senderAccount?:string,receiverName?:string,receiverBank?:string,receiverAccount?:string,warnings?:string[]};
 export type LineDocument={id:string,file_id:string,mime:string,file_size:number,status:string,extracted:DocumentData,last_error?:string,created_at:string,confirmed_target?:string,duplicate_of?:string};
@@ -12,6 +12,13 @@ export function suggestImport(s:State,d:LineDocument):ImportFields{
  const registered=resolveContact(x.contact||'',(s.contacts||[]).filter(c=>c.active));
  const sender=match(x.senderAccount),receiver=match(x.receiverAccount);const invoice=x.documentType==='invoice';
  return {paymentMethod:'',expenseAccountType:'shop',billDetails:x.billDetails?structuredClone(x.billDetails):undefined,documentType:x.documentType||'other',type:invoice?'receivable':sender&&receiver&&sender!==receiver?'transfer':receiver?'income':sender?'expense':'',date:x.date||today(),due:x.due||x.date||today(),title:x.title||'',contact:registered.id?contactValue({contact:registered.name,contactId:registered.id},s.contacts||[]):registered.name,amount:typeof x.amount==='number'?String(x.amount/100):'',account:sender||receiver||'',to:sender&&receiver?receiver:'',category:'อื่น ๆ',documentNo:x.documentNo||'',transferRef:x.transferRef||'',transactionTime:x.transactionTime||'',debtId:'',senderName:x.senderName||'',senderBank:x.senderBank||'',senderAccount:x.senderAccount||'',receiverName:x.receiverName||'',receiverBank:x.receiverBank||'',receiverAccount:x.receiverAccount||''};
+}
+export function selectImportDebt(s:State,f:ImportFields,id:string):ImportFields{
+ if(!id)return {...f,debtId:''};
+ if(f.documentType==='invoice'||f.documentType==='payroll')throw Error('กรุณาใช้หลักฐานรับ–จ่ายเงินเพื่อชำระบิลเดิม');
+ const debt=s.debts.find(d=>d.id===id);
+ if(!debt||remaining(s,debt)<=0)throw Error('ไม่พบบิลค้างชำระ หรือบิลนี้ชำระครบแล้ว');
+ return {...f,debtId:debt.id,type:debt.type==='receivable'?'income':'expense',contact:contactValue({contact:debt.name,contactId:debt.contactId},s.contacts||[]),title:'ชำระบิล '+(debt.billReference||debt.title)+' • '+debt.name,amount:Number(f.amount)>0?f.amount:String(remaining(s,debt)/100),billDetails:undefined};
 }
 export function importLineDocument(s:State,doc:LineDocument,f:ImportFields){
  if(doc.extracted.multipleDocuments)throw Error('PDF นี้มีหลายเอกสาร / หลายพนักงาน กรุณาแยกไฟล์ก่อนนำเข้า');
@@ -23,7 +30,10 @@ export function importLineDocument(s:State,doc:LineDocument,f:ImportFields){
  const n=structuredClone(s),file={id:doc.file_id,name:'LINE-'+doc.id+'.'+(doc.mime==='application/pdf'?'pdf':doc.mime==='image/png'?'png':doc.mime==='image/webp'?'webp':'jpg'),mime:doc.mime,size:doc.file_size};
  if(n.entries.some(e=>e.id===doc.id)||n.debts.some(e=>e.id===doc.id))throw Error('เอกสารนี้บันทึกแล้ว');
  const isDebt=['receivable','payable'].includes(f.type);
- const contact=resolveContact(f.contact,n.contacts||[]);
+ const linkedDebt=f.debtId?n.debts.find(d=>d.id===f.debtId):undefined;
+ if(f.debtId&&(!linkedDebt||f.type!==(linkedDebt.type==='receivable'?'income':'expense')))throw Error('รายการหนี้ที่เลือกไม่ตรงกับการชำระ');
+ if(linkedDebt&&amount>remaining(n,linkedDebt))throw Error('ยอดชำระเกินยอดค้างของบิลที่เลือก กรุณาตรวจยอดหรือแบ่งรายการ');
+ const contact=linkedDebt?{name:linkedDebt.name,id:linkedDebt.contactId}:resolveContact(f.contact,n.contacts||[]);
  if(f.documentType==='invoice'&&!isDebt)throw Error('ใบแจ้งหนี้ต้องบันทึกเป็นลูกหนี้หรือเจ้าหนี้ ยังไม่ใช่หลักฐานรับ–จ่ายเงิน');
  if(isDebt){
   if(!f.contact.trim())throw Error('กรุณาระบุชื่อลูกค้าหรือเจ้าหนี้');

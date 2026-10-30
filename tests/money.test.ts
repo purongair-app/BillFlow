@@ -88,7 +88,7 @@ test('slip time, duplicate references and optional legacy account details valida
 test('LINE bank receipts include time, parties and masked accounts; image messages stay owner-scoped',()=>{const q={id:'q',action:'create',owner:'00000000-0000-4000-8000-000000000010',business:'ร้านตัวอย่าง',accounts:[{id:'bank',name:'บัญชีรับบริการ',bankName:'ธนาคาร ก',accountNumber:'1234567890'}],entry:{id:'entry-one',type:'income',date:'2026-10-29',transactionTime:'17:22',title:'ค่าบริการ',amount:500000,account:'bank',contact:'ลูกค้าตัวอย่าง',senderName:'ผู้โอนตัวอย่าง',senderBank:'ธนาคาร ข',senderAccount:'9876543210',transferRef:'REF999',file:{id:'00000000-0000-4000-8000-000000000001',name:'slip.png',mime:'image/png',previewId:'00000000-0000-4000-8000-000000000002'},slipReview:'pending'}};const text=bankNotificationText(q);assert.match(text,/17:22/);assert.match(text,/ลูกค้าตัวอย่าง/);assert.match(text,/ผู้โอนตัวอย่าง/);assert.match(text,/5,000.00/);assert.match(text,/•••• 7890/);assert.doesNotMatch(text,/1234567890|9876543210/);assert.equal(receiptPaths(q)?.original,q.owner+'/'+q.entry.file.id);assert.equal(lineMessages(q,{original:'https://example.com/original',preview:'https://example.com/preview'}).length,2);assert.equal(lineMessages({...q,action:'delete'}).length,1);assert.equal(receiptPaths({...q,owner:'../other'}),null);assert.equal(receiptPaths({...q,entry:{...q.entry,file:{...q.entry.file,mime:'application/pdf',name:'bill.pdf'}}}),null);assert.throws(()=>lineMessages(q,{original:'http://unsafe',preview:'https://example.com/p'}));});
 
 import {normalizeExtraction} from '../supabase/functions/billflow-line/ocr.ts';
-import {importLineDocument,suggestImport,type LineDocument} from '../src/lineDocuments.ts';
+import {importLineDocument,suggestImport,selectImportDebt,type LineDocument} from '../src/lineDocuments.ts';
 const inboxDocument=(extracted:LineDocument['extracted']={}):LineDocument=>({id:crypto.randomUUID(),file_id:crypto.randomUUID(),mime:'image/jpeg',file_size:1200,status:'ready',extracted,created_at:new Date().toISOString()});
 test('invoice import creates a debt with evidence without changing bank balances',()=>{
  const s=initialState(),doc=inboxDocument({documentType:'invoice',documentNo:'INV-691008',date:'2026-10-16',title:'ล้างแอร์ 4 เครื่อง',contact:'ลูกค้าตัวอย่าง',amount:820000});
@@ -249,4 +249,26 @@ test('LINE imports link registered contacts by code, retain clean names and prot
  assert.equal(entry.contactId,'creditor-a');assert.equal(entry.contact,'เจ้าหนี้ทดสอบ');
  assert.throws(()=>importLineDocument(s,doc,{...ambiguous,contact:'CT003 · ปิดใช้งาน'}),/ปิดใช้งาน/);
  assert.equal(s.debts.length,0);assert.equal(s.entries.length,0);
+});
+
+test('LINE bill selection fills party and direction, preserves receipt amounts and settles debts once',()=>{
+ const s=initialState();s.contacts=[{id:'party',code:'CT099',name:'ชื่อปัจจุบัน',kind:'customer',note:'',active:true}];
+ s.debts=[{id:'bill-ar',type:'receivable',name:'ชื่อตามบิลเดิม',contactId:'party',title:'ค่าบริการ',billReference:'INV-QA',amount:100000,due:'2026-10-31'},
+ {id:'bill-ap',type:'payable',name:'เจ้าหนี้ QA',title:'อะไหล่',billReference:'SUP-QA',amount:80000,due:'2026-10-31'}];
+ const doc=inboxDocument({documentType:'slip',amount:40000,title:'สลิป'});
+ const chosen=selectImportDebt(s,suggestImport(s,doc),'bill-ar');
+ assert.equal(chosen.type,'income');assert.equal(chosen.amount,'400');assert.equal(chosen.contact,'CT099 · ชื่อตามบิลเดิม');assert.match(chosen.title,/INV-QA/);
+ const result=importLineDocument(s,doc,{...chosen,account:'cash',paymentMethod:'cash',contact:'ชื่อไม่ตรง'});
+ assert.equal(result.state.entries[0].debtId,'bill-ar');assert.equal(result.state.entries[0].contactId,'party');assert.equal(result.state.entries[0].contact,'ชื่อตามบิลเดิม');
+ assert.equal(remaining(result.state,result.state.debts[0]),60000);assert.equal(balance(result.state,'cash'),40000);assert.equal(s.entries.length,0);
+ assert.throws(()=>importLineDocument(result.state,doc,chosen),/บันทึกแล้ว/);
+ const next=inboxDocument({documentType:'receipt',title:'ชำระที่เหลือ'});
+ const final=selectImportDebt(result.state,suggestImport(result.state,next),'bill-ar');assert.equal(final.amount,'600');
+ const paid=importLineDocument(result.state,next,{...final,account:'cash',paymentMethod:'cash'}).state;
+ assert.equal(remaining(paid,paid.debts[0]),0);assert.throws(()=>selectImportDebt(paid,final,'bill-ar'),/ชำระครบ/);
+ const supplier=selectImportDebt(s,suggestImport(s,next),'bill-ap');assert.equal(supplier.type,'expense');assert.equal(supplier.amount,'800');
+ const expense=importLineDocument(s,next,{...supplier,account:'cash',paymentMethod:'cash',amount:'200'}).state;
+ assert.equal(remaining(expense,expense.debts[1]),60000);assert.equal(balance(expense,'cash'),-20000);
+ assert.throws(()=>importLineDocument(s,next,{...supplier,account:'cash',amount:'900'}),/เกินยอดค้าง/);
+ assert.throws(()=>selectImportDebt(s,{...supplier,documentType:'invoice'},'bill-ap'),/หลักฐานรับ–จ่าย/);
 });
