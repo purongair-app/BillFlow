@@ -7,7 +7,8 @@ import WithholdingFields from './WithholdingFields';
 import {withholdingFromForm} from './withholding';
 import BillFields from './BillFields';
 import {billDetailsFromForm} from './billDetails';
-import {useEffect,useState} from 'react';
+import {useEffect,useRef,useState} from 'react';
+import {watchVisibleRefresh} from './refresh';
 import {RefreshCw,FileText,X} from 'lucide-react';
 import {fileUrl,lineRequest} from './backend';
 import {type State,money,remaining} from './money';
@@ -16,10 +17,11 @@ import {type LineDocument,type ImportFields,suggestImport,importLineDocument,sel
 const statuses:Record<string,string>={pending:'รออ่าน',processing:'กำลังรับ / อ่านรูป',ready:'อ่านแล้ว • รอตรวจ',needs_key:'รับรูปแล้ว • รอตั้งค่า Gemini API key',failed:'อ่านไม่สำเร็จ • ตรวจด้วยตนเอง',duplicate:'รูปซ้ำ',confirmed:'ยืนยันแล้ว',rejected:'ไม่นำเข้า'};
 export default function LineInbox({state,access,onSave}:{state:State,access:Access,onSave:(s:State,text:string,info?:{id:string,target:string})=>Promise<boolean>}){
  const [docs,Docs]=useState<LineDocument[]>([]),[selected,Selected]=useState<LineDocument|null>(null),[fields,Fields]=useState<ImportFields|null>(null),[url,Url]=useState(''),[error,ErrorText]=useState(''),[busy,Busy]=useState(false),[configured,Configured]=useState(false),[message,Message]=useState(''),[apiKey,ApiKey]=useState(''),[model,Model]=useState('gemini-3.5-flash-lite');
+ const mounted=useRef(false),loading=useRef<Promise<void>|null>(null);
  const [billSearch,BillSearch]=useState(''),[billKind,BillKind]=useState('all');
  useEffect(()=>{BillSearch('');BillKind('all')},[selected?.id]);
- async function load(){try{const data=await lineRequest('inbox');Docs(data.documents);Configured(data.ocrConfigured);if(data.model)Model(data.model);}catch(e){ErrorText(e instanceof Error?e.message:'โหลดไม่สำเร็จ');}}
- useEffect(()=>{void load();const timer=setInterval(()=>void load(),15000);return()=>clearInterval(timer)},[]);
+ async function load(){if(loading.current)return loading.current;const request=(async()=>{try{const data=await lineRequest('inbox');if(!mounted.current)return;Docs(old=>JSON.stringify(old)===JSON.stringify(data.documents)?old:data.documents);Configured(data.ocrConfigured);if(data.model)Model(data.model);}catch(e){if(mounted.current)ErrorText(e instanceof Error?e.message:'โหลดไม่สำเร็จ');}})();loading.current=request;try{await request}finally{loading.current=null}}
+ useEffect(()=>{mounted.current=true;void load();const stop=watchVisibleRefresh(load,15000);return()=>{mounted.current=false;stop()}},[]);
  useEffect(()=>{let alive=true;Url('');if(selected?.file_size)fileUrl(selected.file_id).then(u=>{if(alive)Url(u)}).catch(()=>{if(alive)ErrorText('เปิดรูปไม่สำเร็จ กรุณาเปิดเอกสารใหม่')});return()=>{alive=false}},[selected?.id]);
  async function act(action:string,id?:string){Busy(true);ErrorText('');try{await lineRequest(action,action==='ocr-key'?{key:apiKey,model}:{id});if(action==='ocr-key'){ApiKey('');Message('บันทึก API key แล้ว เอกสารที่รอตั้งค่าจะเข้าคิวอ่านอัตโนมัติ');}await load();}catch(e){ErrorText(e instanceof Error?e.message:'ดำเนินการไม่สำเร็จ')}finally{Busy(false)}}
  const selectedDebt=state.debts.find(d=>d.id===fields?.debtId);
