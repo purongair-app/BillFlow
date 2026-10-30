@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {employeeDocumentEmail,payrollEmployeeEmail,payrollEmailDraft} from '../src/payrollEmail.ts';
+import {payrollDocumentEmployee,employeeDocumentEmail,payrollEmployeeEmail,payrollEmailDraft} from '../src/payrollEmail.ts';
 import {savePerson,people} from '../src/people.ts';
 import {initialState} from '../src/money.ts';
 test('document email persists in the employee directory and takes precedence over login email',()=>{
@@ -23,4 +23,15 @@ test('email drafts contain only the chosen recipient and encode subject and body
  const p:any={id:'p',employeeCode:'EMP001',employeeName:'ทดสอบ & Bcc:',periodStart:'2026-10-01',periodEnd:'2026-10-15'};
  const uri=payrollEmailDraft(p,'ร้านทดสอบ',{kind:'payslip',copy:'employee'},'employee@example.com','Payroll-test.pdf'),query=new URLSearchParams(uri.split('?')[1]);
  assert.equal(query.size,2);assert.ok(query.get('body')?.includes('Payroll-test.pdf'));assert.equal(decodeURIComponent(uri.split('?')[0]),'mailto:employee@example.com');
+});
+
+test('payroll recipient uses matching employee code and name even when an old internal ID points to another employee',()=>{
+ const intended={id:'new-id',code:'662050',name:'พาตีฮะห์ เซ๊ะ',email:'employee@example.com'};
+ const other={id:'old-id',code:'662055',name:'นางสาวมาซีเตาะ ลาเเตะ',email:'other@example.com'};
+ const slip={employeeId:'old-id',employeeCode:'662050',employeeName:'นางสาวพาตีฮะห์ เซ๊ะ'};
+ assert.equal(employeeDocumentEmail(payrollDocumentEmployee(slip,[other,intended])),'employee@example.com');
+ assert.equal(payrollDocumentEmployee(slip,[other]),undefined);
+ assert.equal(payrollDocumentEmployee(slip,[intended,{...intended,id:'duplicate'}]),undefined);
+ assert.equal(payrollDocumentEmployee({...slip,employeeName:'คนอื่น'},[intended]),undefined);
+ assert.equal(payrollDocumentEmployee({...slip,employeeId:'new-id'},[intended]),intended);
 });
