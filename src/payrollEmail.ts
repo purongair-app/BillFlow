@@ -1,0 +1,15 @@
+import type {PayrollSlip} from './payroll.ts';
+import type {PayrollPdfOptions} from './payrollPdf.ts';
+import {dateLabel} from './money.ts';
+export function payrollEmployeeEmail(value:string){
+ const email=value.trim();
+ if(email.length>254||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||/[\r\n,;<>]/.test(email))throw Error('ยังไม่มีอีเมลพนักงานที่ถูกต้อง กรุณาเพิ่มอีเมลในทะเบียนพนักงานก่อน');
+ return email;
+}
+export function payrollEmailDraft(p:PayrollSlip,business:string,options:PayrollPdfOptions,email:string,filename:string){
+ const recipient=payrollEmployeeEmail(email);
+ const title=options.kind==='receipt'?'ใบรับเงินเดือน / หลักฐานงวดจ่าย':'ใบแจ้งรายละเอียดเงินเดือน / ค่าแรง';
+ const subject=title+' '+(p.form?.documentNo||p.id)+' • '+business;
+ const body=['เรียน '+p.employeeName,'',business+' ขอส่ง'+title,'รอบ '+dateLabel(p.periodStart)+' – '+dateLabel(p.periodEnd),'รหัสพนักงาน '+p.employeeCode,'','เอกสาร PDF: '+filename,'กรุณาตรวจสอบไฟล์แนบประกอบอีเมลฉบับนี้','',business].join('\r\n');
+ return 'mailto:'+encodeURIComponent(recipient)+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
+}
