@@ -113,9 +113,9 @@ function VoiceMenu({access,disabled,onNavigate,page}:{access:Access,disabled:boo
  const current=useRef<MenuSpeechRecognition|null>(null),timer=useRef<ReturnType<typeof setTimeout>|null>(null);
  const latest=useRef({access,disabled,onNavigate});latest.current={access,disabled,onNavigate};
  function stop(){endsAt.current=0;const speech=current.current;current.current=null;if(timer.current)clearTimeout(timer.current);if(speech){speech.onstart=null;speech.onend=null;speech.onresult=null;speech.onerror=null;speech.abort();}SetListening(false);}
- useEffect(()=>{const hidden=()=>{if(document.hidden){stop();SetMessage('หยุดฟังเมื่อซ่อนหน้าจอแล้ว')}};document.addEventListener('visibilitychange',hidden);return()=>{document.removeEventListener('visibilitychange',hidden);const speech=current.current;current.current=null;if(timer.current)clearTimeout(timer.current);if(speech){speech.onstart=null;speech.onend=null;speech.onresult=null;speech.onerror=null;speech.abort()}}},[]);
+ useEffect(()=>{const hidden=()=>{if(document.hidden){stop();SetMessage('');SetHeard('')}};document.addEventListener('visibilitychange',hidden);return()=>{document.removeEventListener('visibilitychange',hidden);const speech=current.current;current.current=null;if(timer.current)clearTimeout(timer.current);if(speech){speech.onstart=null;speech.onend=null;speech.onresult=null;speech.onerror=null;speech.abort()}}},[]);
  useEffect(()=>{if(disabled){stop();}},[disabled]);
- useEffect(()=>{stop()},[page]);
+ useEffect(()=>{stop();SetMessage('');SetHeard('')},[page]);
  useEffect(()=>{if(!listening)return;const tick=()=>SetSeconds(Math.max(0,Math.ceil((endsAt.current-Date.now())/1000)));tick();const interval=setInterval(tick,250);return()=>clearInterval(interval)},[listening]);
  function navigate(menu:string,text:string){if(latest.current.disabled){SetMessage('ระบบกำลังทำรายการ กรุณาลองอีกครั้ง');return;}if(!canView(latest.current.access,menu)){SetMessage('ได้ยินว่า “'+text+'” แต่คุณยังไม่มีสิทธิ์เข้าถึงเมนูนี้');return;}const label=nav.find(([key])=>key===menu)?.[1]||menu;const moved=latest.current.onNavigate(menu);SetMessage(moved?'ได้ยินว่า “'+text+'” → เปิดเมนู '+label+' แล้ว':'ยกเลิกการเปลี่ยนหน้าแล้ว');}
 
