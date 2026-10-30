@@ -157,7 +157,6 @@ function weatherAppearance(code:string){
 }
 
 function SmartGreeting({name,state,access,onNavigate}:{name:string,state:State,access:Access,onNavigate:(menu:string)=>void}){
- const [forecast,SetForecast]=useState<ReturnType<typeof threeDayWeather>>([]);
  const [now,SetNow]=useState(()=>new Date());
  useEffect(()=>{const refresh=()=>SetNow(new Date());const timer=setInterval(refresh,60000);window.addEventListener('focus',refresh);return()=>{clearInterval(timer);window.removeEventListener('focus',refresh)}},[]);
  const hour=Number(new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Bangkok',hour:'2-digit',hourCycle:'h23'}).format(now));
@@ -193,6 +192,7 @@ function threeDayWeather(points:{time:string,temperature:number,symbol?:string}[
  });
 }
 function HeaderEnvironment(){
+ const [forecast,SetForecast]=useState<ReturnType<typeof threeDayWeather>>([]);
  const cities=[{name:'กรุงเทพฯ',lat:'13.76',lon:'100.50'},{name:'นราธิวาส',lat:'6.43',lon:'101.82'},{name:'ปัตตานี',lat:'6.87',lon:'101.25'},{name:'ยะลา',lat:'6.54',lon:'101.28'},{name:'สงขลา',lat:'7.20',lon:'100.60'},{name:'ภูเก็ต',lat:'7.88',lon:'98.39'},{name:'เชียงใหม่',lat:'18.79',lon:'98.98'},{name:'ขอนแก่น',lat:'16.44',lon:'102.84'}];
  const [now,SetNow]=useState(()=>new Date()),[city,SetCity]=useState('นราธิวาส'),[weather,SetWeather]=useState<{temperature:number,time:string,symbol?:string,humidity?:number,wind?:number}|null>(null),[weatherBusy,SetWeatherBusy]=useState(false),[weatherError,SetWeatherError]=useState('');
  useEffect(()=>{const tick=()=>SetNow(new Date());const timer=setInterval(tick,1000);window.addEventListener('focus',tick);return()=>{clearInterval(timer);window.removeEventListener('focus',tick)}},[]);
