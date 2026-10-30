@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "tsc --noEmit && vite build",
-    "test": "node --experimental-strip-types --test tests/money.test.ts tests/payroll.test.ts tests/payroll-document.test.ts tests/pdf-line.test.ts tests/payroll-pdf.test.ts tests/employee-numbering.test.ts tests/business-assets.test.ts tests/user-profile-access.test.ts tests/profile-details.test.ts tests/debt-attachments.test.ts tests/transfer-details.test.ts tests/pdf-engine.test.ts tests/payroll-email.test.ts tests/social-calculator.test.ts tests/sso-submission.test.ts tests/sso-report.test.ts tests/sso-selection.test.ts"
+    "test": "node --experimental-strip-types --test tests/money.test.ts tests/payroll.test.ts tests/payroll-document.test.ts tests/pdf-line.test.ts tests/payroll-pdf.test.ts tests/employee-numbering.test.ts tests/business-assets.test.ts tests/user-profile-access.test.ts tests/profile-details.test.ts tests/debt-attachments.test.ts tests/transfer-details.test.ts tests/pdf-engine.test.ts tests/payroll-email.test.ts tests/social-calculator.test.ts tests/sso-submission.test.ts tests/sso-report.test.ts tests/sso-selection.test.ts tests/gmail-payroll.test.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.118.0",
