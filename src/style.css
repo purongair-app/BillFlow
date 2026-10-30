@@ -93,3 +93,5 @@
 .numbering-save-actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap}.numbering-save .numbering-draft-status{margin:0 0 8px;font-size:12px;color:#405b4d}@media(max-width:600px){.numbering-save-actions{flex-direction:column}.numbering-save-actions button{width:100%}}
 
 .numbering-settings [aria-invalid="true"]{border-color:#b53b2c;background:#fff6f4;outline:2px solid #d98272;outline-offset:1px}
+
+.sso-submission{width:min(1400px,96vw);max-width:1400px}.sso-entry-table{min-width:1100px}.sso-entry-table input{width:100%;min-width:100px}.sso-entry-table td:nth-child(2) input{min-width:170px}.sso-submission .tools{flex-wrap:wrap;gap:8px}.sso-submission h3{margin-top:24px}.sso-submission .table-wrap{margin-top:14px}
