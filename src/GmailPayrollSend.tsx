@@ -24,7 +24,7 @@ export default function GmailPayrollSend({pdf,filename,mailto,disabled,sendDisab
  if(inFlight.current||busy||disabled||sendDisabled||!pdf||!filename||!mailto||unknown||result)return;
  if(!token.current||token.current.expires<=Date.now()){Connected(false);ErrorText('กรุณาเชื่อม Gmail ใหม่ก่อนส่ง');return;}
  inFlight.current=true;Busy(true);ErrorText('');
- try{const sent=await sendPayrollThroughGmail(token.current.value,{to:recipient,subject,text,filename,pdf});if(alive.current){Result('Gmail รับคำขอส่งพร้อม PDF แล้ว • ผู้รับ '+recipient+' • เลขอ้างอิง '+sent.id);onSent();}}
+ try{const sent=await sendPayrollThroughGmail(token.current.value,{to:recipient,subject,text,filename,pdf});if(alive.current){Result('Gmail รับคำขอส่งพร้อม PDF แล้ว • ผู้รับ '+recipient+' • เลขอ้างอิง '+sent.id);onSent();window.alert('ส่งอีเมลพร้อม PDF สำเร็จ\nผู้รับ: '+recipient+'\nไฟล์แนบ: '+filename+'\nGmail รับคำขอส่งแล้ว • เลขอ้างอิง: '+sent.id);}}
  catch(e){if(alive.current){if(e instanceof GmailDeliveryUnknown)Unknown(true);ErrorText(e instanceof Error?e.message:'ส่งอีเมลไม่สำเร็จ');}}
  finally{inFlight.current=false;if(alive.current)Busy(false)}
  }
