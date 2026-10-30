@@ -14,3 +14,13 @@ test('viewing my profile never grants employee-directory or ledger writes',()=>{
  assert.equal(canSaveChanges(user,previous,{...previous,employees:[{id:'employee',name:'Changed'}]}),false);
  assert.equal(canSaveChanges(user,previous,{...previous,entries:[{id:'new'}]}),true);
 });
+
+test('LINE inbox view and management remain separate from destination writes and owner settings',()=>{
+ const viewer:Access={owner:false,workspaceOwner:'shop',menus:['inbox'],editMenus:[]};
+ assert.equal(canView(viewer,'inbox'),true);
+ assert.equal(canEdit(viewer,'inbox'),false);
+ const reviewer={...viewer,editMenus:['inbox']};
+ assert.equal(canEdit(reviewer,'inbox'),true);
+ for(const menu of ['entries','debts','payroll','settings','line','permissions'])assert.equal(canEdit(reviewer,menu),false);
+ assert.equal(canSaveChanges(reviewer,{entries:[]},{entries:[{id:'forbidden'}]}),false);
+});

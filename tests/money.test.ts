@@ -190,7 +190,7 @@ import {standardRolePermissions} from '../src/permissions.ts';
 test('standard roles provide bounded menu defaults with independent editable copies',()=>{
  const employee=standardRolePermissions('employee');assert.deepEqual(employee,{menus:['entries'],editMenus:['entries']});
  const admin=standardRolePermissions('shop_admin');assert.ok(admin.editMenus.includes('people'));assert.ok(!admin.editMenus.includes('accounts'));
- for(const role of ['manager','shop_admin','employee'] as const){const preset=standardRolePermissions(role);validateMenuSelection(preset.menus,preset.editMenus);assert.ok(!preset.menus.some(x=>['permissions','settings','line','inbox'].includes(x)));}
+ for(const role of ['manager','shop_admin','employee'] as const){const preset=standardRolePermissions(role);validateMenuSelection(preset.menus,preset.editMenus);assert.ok(!preset.menus.some(x=>['permissions','settings','line'].includes(x)));}
  const manager=standardRolePermissions('manager');manager.menus.length=0;assert.ok(standardRolePermissions('manager').menus.length>0);assert.ok(standardRolePermissions('manager').editMenus.includes('accounts'));
 });
 
