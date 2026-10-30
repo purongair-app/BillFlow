@@ -87,3 +87,5 @@
  .topbar .topbar-navigation{width:auto;margin-left:auto;flex:0 1 auto;justify-content:flex-end}
  .topbar .topbar-navigation > button{flex:0 0 auto}
 }
+
+.numbering-settings .form-grid{grid-template-columns:minmax(0,1fr)}.numbering-preview{padding:14px;background:#edf5f1;border-radius:8px;overflow-wrap:anywhere}.numbering-save{position:sticky;bottom:0;background:white;padding:12px 0;border-top:1px solid #e3eae5}.numbering-save button{min-height:44px}.settings-row{min-height:64px}.settings-page-heading button{min-height:44px}@media(max-width:600px){.numbering-save button{width:100%}.settings-row{padding:15px}.settings-row b{font-size:13px}}
