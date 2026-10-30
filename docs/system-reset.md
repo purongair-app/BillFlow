@@ -19,3 +19,14 @@ Validation: 41 unit tests and the production build pass. `tests/system-reset.sql
 The settings card offers changing the email of the existing owner account via Supabase Auth email confirmation, preserving its UID and all data/configuration. This changes that account’s login email and requires an unused email address; it does not transfer the shop to a different existing registered account. No live email change or verification message is sent while implementing this feature. Ownership remains assigned to the same account ID; the current confirmed Auth email is read afresh rather than restored from a hardcoded address.
 
 An initial proposal to expose the owner contact email before login was rejected by automatic approval review. The shipped design restricts setup/email data to the authenticated owner and shows no owner email on the public login page.
+
+
+## Reset every data menu to defaults (October 30, 2026)
+
+Apply `supabase/reset-all-menus.sql` after the other BillFlow SQL files. It replaces the shop ledger atomically after the existing owner, confirmed-email, active-session, OTP, phrase and revision checks. The new row uses revision + 1 and a canonical empty payroll, numbering, recurring-expense and contact state. Normal UPDATE validation and immutable approved payroll/journal protections remain unchanged. Explicit reset no longer uses the legacy accounting block. Each repeat reset starts from the same canonical payload.
+
+Shop business details, logos, signatures, QR images, employees, entries, debts, payroll, journals, chart customizations and attached receipt files are reset. Old payroll-share records and the owner's deleted custom-photo pointer are removed. Storage cleanup uses the original same-owner path snapshot and Storage API; it never deletes Storage metadata through SQL. CORS supports both official frontend origins. The UI reports pending file cleanup separately.
+
+Login accounts, user permissions, LINE/OCR/SSO connections, central usage audit history and existing private archived backups remain. The ledger's legacy audit list is empty after reset; a new central reset event records the operation. Other users' records and other application buckets remain untouched.
+
+Validation runs exclusively in isolated PGlite using read-only snapshots of deployed validators. It covers approved and paid payroll, posted journals, repeated reset, OTP/session/revision checks, atomic rollback on failed INSERT, same-owner file snapshots, preserved connections/history and unaffected outsider records. No real OTP or real reset is submitted during installation. Old pending reset dialogs are cancelled so the owner requests a fresh OTP after deployment.

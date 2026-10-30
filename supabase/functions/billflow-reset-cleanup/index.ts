@@ -1,8 +1,11 @@
 import {createClient} from 'npm:@supabase/supabase-js@2.118.0';
 const db=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{auth:{persistSession:false,autoRefreshToken:false}});
-const headers={'Access-Control-Allow-Origin':'https://purongair-app.github.io','Access-Control-Allow-Headers':'authorization,apikey,x-client-info,content-type','Content-Type':'application/json'};
-const reply=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers});
-Deno.serve(async(req:Request)=>{if(req.method==='OPTIONS')return new Response(null,{headers});if(req.method!=='POST')return reply({error:'Method not allowed'},405);try{
+const origins=new Set(['https://purongair-app.github.io','https://billflow.airfriendservice.com']);
+Deno.serve(async(req:Request)=>{
+ const origin=req.headers.get('origin')||'';
+ const headers={'Access-Control-Allow-Origin':origins.has(origin)?origin:'https://purongair-app.github.io','Access-Control-Allow-Headers':'authorization,apikey,x-client-info,content-type','Access-Control-Allow-Methods':'POST, OPTIONS','Vary':'Origin','Content-Type':'application/json'};
+ const reply=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers});
+if(req.method==='OPTIONS')return new Response(null,{headers});if(req.method!=='POST')return reply({error:'Method not allowed'},405);try{
  let owner:string|null=null;const worker=req.headers.get('x-billflow-worker');
  if(worker){const {data,error}=await db.rpc('billflow_line_check_worker',{p_key:worker});if(error||!data)return reply({error:'Unauthorized'},401);}
  else{const token=req.headers.get('authorization')?.match(/^Bearer (.+)$/i)?.[1];if(!token)return reply({error:'Unauthorized'},401);const {data:{user},error}=await db.auth.getUser(token);if(error||!user)return reply({error:'Unauthorized'},401);const client=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_ANON_KEY')!,{global:{headers:{Authorization:'Bearer '+token}},auth:{persistSession:false}});const check=await client.rpc('billflow_access_only');if(check.error||check.data?.owner!==true)return reply({error:'Owner only'},403);owner=user.id;}
