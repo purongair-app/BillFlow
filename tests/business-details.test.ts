@@ -33,3 +33,11 @@ test('address export retains field headings and postal code stays a bare value',
  assert.equal(f.address,'บ้านเลขที่ / หมู่ / อาคาร / ซอย / ถนน 16 ถนนโคกเคียน ตำบล/แขวง บางนาค อำเภอ/เขต เมือง จังหวัด นราธิวาส');
  assert.equal(f.postalCode,'96000');assert.ok(!f.address.includes('รหัสไปรษณีย์'));
 });
+
+
+test('shop email is optional, validated and included in social-security contact defaults',()=>{
+ validateBusinessDetails({email:''});validateBusinessDetails({email:'airfriendnara@gmail.com'});
+ for(const email of ['invalid','a@@b.com','a b@c.com'])assert.throws(()=>validateBusinessDetails({email}));
+ const s={business:'shop',businessDetails:{email:'airfriendnara@gmail.com'}};
+ assert.equal(ssoBusinessDetails(JSON.parse(JSON.stringify(s))).email,'airfriendnara@gmail.com');
+});
