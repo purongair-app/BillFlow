@@ -28,7 +28,7 @@ export async function confirmLineDocument(state:State,revision:number,id:string,
 
 export async function listApplicants(){const {data,error}=await supabase!.rpc('billflow_list_applicants');if(error)throw Error('โหลดผู้สมัครรอกำหนดสิทธิ์ไม่สำเร็จ กรุณาลองใหม่');return data as Applicant[];}
 
-export type SidebarProfile={name?:string,photo?:string};
+export type SidebarProfile={name?:string,photo?:string,email?:string,linked?:boolean,linkStatus?:'linked'|'unlinked'|'ambiguous',employeeId?:string,code?:string,position?:string,phone?:string,address?:string,bankName?:string,bankAccountName?:string,bankAccountNumber?:string};
 export async function readProfile():Promise<SidebarProfile>{const {data,error}=await supabase!.rpc('billflow_my_profile');if(error)throw Error('โหลดรูปบัญชีไม่สำเร็จ');return data||{};}
 
 export type LinkableAccount={id:string,email:string,name:string,confirmed:boolean};
@@ -51,3 +51,13 @@ export async function requestOwnerEmailChange(email:string){const access=await r
 
 export async function logUsage(action:string,context=''){try{await supabase?.rpc('billflow_log_usage',{p_action:action,p_context:context});}catch{/* Mutation audit is recorded independently on the database server. */}}
 export async function usageHistory(filters:{before?:string,from?:string,to?:string,search?:string,action?:string}){const {data,error}=await supabase!.rpc('billflow_usage_history',{p_before:filters.before||null,p_from:filters.from||null,p_to:filters.to||null,p_search:filters.search||'',p_action:filters.action||''});if(error)throw Error('โหลดประวัติไม่ได้ เฉพาะเจ้าของเท่านั้นที่ตรวจสอบได้');return data as {recordingStartedAt:string,events:UsageEvent[],nextBefore:string|null,hasMore:boolean};}
+
+export async function saveMyDisplayName(value:string):Promise<SidebarProfile>{
+ const name=value.trim().replace(/\s+/g,' ');
+ if(!name||name.length>150)throw Error('กรุณากรอกชื่อ–นามสกุลไม่เกิน 150 ตัวอักษร');
+ if(!supabase)throw Error('กรุณาเข้าสู่ระบบ');
+ const current=await readProfile();if(current.linked)throw Error('บัญชีนี้เชื่อมกับพนักงานแล้ว กรุณาแก้ไขชื่อผ่านทะเบียนพนักงาน');
+ const {error}=await supabase.auth.updateUser({data:{full_name:name}});
+ if(error)throw Error('บันทึกชื่อแสดงบัญชีไม่สำเร็จ กรุณาลองอีกครั้ง');
+ void logUsage('account.updated','display-name');return readProfile();
+}
