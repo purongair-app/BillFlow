@@ -99,3 +99,5 @@
 .employee-basic-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.8fr) minmax(0,2fr);gap:14px}@media(max-width:800px){.employee-basic-grid{grid-template-columns:minmax(0,1fr)}}
 
 .sso-entry-table td:nth-child(2) input{min-width:235px;font-variant-numeric:tabular-nums}
+
+.sso-entry-table td:nth-child(3) input{min-width:235px;font-variant-numeric:tabular-nums}.sso-entry-table td:first-child input[type=checkbox]{min-width:18px;width:18px;height:18px}.sso-entry-table input[aria-invalid=true]{border:2px solid #b42318;background:#fff5f4}.sso-row-check{min-width:180px;max-width:240px;white-space:normal;font-size:12px}.sso-entry-table .sso-excluded{background:#f4f5f5}.sso-entry-table .sso-excluded td:not(:first-child){color:#64746c}

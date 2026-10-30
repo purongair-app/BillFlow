@@ -1,6 +1,6 @@
 import {calculateSocial,socialDefaults} from './socialCalculator.ts';
-import {ssoAmount,type SsoSubmission} from './ssoSubmission.ts';
-export function ssoTotals(f:SsoSubmission){
+import {selectedSso,ssoAmount,type SsoSubmission} from './ssoSubmission.ts';
+export function ssoTotals(f:SsoSubmission){f=selectedSso(f);
  const wage=f.rows.reduce((n,r)=>n+ssoAmount(r.wage),0),employee=f.rows.reduce((n,r)=>n+ssoAmount(r.contribution),0);
  const d=socialDefaults(f.month+'-01');
  const suggestedEmployer=Number(f.employeeRate)===Number(f.employerRate)?employee:f.rows.reduce((n,r)=>n+calculateSocial(ssoAmount(r.wage),d.minimum,d.maximum,Number(f.employeeRate),Number(f.employerRate)).employer,0);

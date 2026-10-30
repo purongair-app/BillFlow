@@ -1,9 +1,9 @@
 import {loadPdfDependencies} from './pdfEngine.ts';
-import {validateSso,type SsoSubmission} from './ssoSubmission.ts';
+import {selectedSso,validateSso,type SsoSubmission} from './ssoSubmission.ts';
 import {ssoTotals} from './ssoReport.ts';
 import {money,dateLabel} from './money.ts';
 import {thaiBaht} from './payrollDocument.ts';
-export function ssoPdfDefinition(f:SsoSubmission):any{
+export function ssoPdfDefinition(f:SsoSubmission):any{f=selectedSso(f);
  const errors=validateSso(f);if(errors.length)throw Error(errors.join('\n'));const totals=ssoTotals(f);
  const period=new Date(f.month+'-01T12:00:00Z').toLocaleDateString('th-TH',{month:'long',year:'numeric',timeZone:'Asia/Bangkok'}),muted='#607069',ink='#214b3b';
  const cell=(v:unknown,extra:any={})=>({text:String(v??''),margin:[4,4,4,4],...extra}),amount=(v:number)=>cell(money(v),{alignment:'right'}),head=(v:string)=>cell(v,{bold:true,fillColor:'#e6efea'});
