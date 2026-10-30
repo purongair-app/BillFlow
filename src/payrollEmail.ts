@@ -13,3 +13,9 @@ export function payrollEmailDraft(p:PayrollSlip,business:string,options:PayrollP
  const body=['เรียน '+p.employeeName,'',business+' ขอส่ง'+title,'รอบ '+dateLabel(p.periodStart)+' – '+dateLabel(p.periodEnd),'รหัสพนักงาน '+p.employeeCode,'','เอกสาร PDF: '+filename,'กรุณาตรวจสอบไฟล์แนบประกอบอีเมลฉบับนี้','',business].join('\r\n');
  return 'mailto:'+encodeURIComponent(recipient)+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
 }
+
+export function employeeDocumentEmail(employee:{email?:string,loginEmail?:string,userId?:string}|undefined,accounts:{id:string,email:string,confirmed:boolean}[]=[]){
+ if(employee?.email?.trim())return employee.email.trim();
+ if(employee?.userId){const matches=accounts.filter(a=>a.id===employee.userId&&a.confirmed);return matches.length&&new Set(matches.map(a=>a.email.trim().toLowerCase())).size===1?matches[0].email.trim():'';}
+ return employee?.loginEmail?.trim()||'';
+}
