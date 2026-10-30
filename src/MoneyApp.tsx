@@ -111,9 +111,11 @@ function VoiceMenu({access,disabled,onNavigate,page}:{access:Access,disabled:boo
  speech.onstart=()=>{if(!deadline)deadline=Date.now()+45000;endsAt.current=deadline;SetListening(true);SetMessage('กำลังฟัง… รอคำสั่งได้ 45 วินาที เช่น เปิดเงินเดือน');if(timer.current)clearTimeout(timer.current);timer.current=setTimeout(()=>{stop();SetMessage('หมดเวลารับคำสั่ง กดไมโครโฟนเพื่อลองใหม่')},Math.max(1000,deadline-Date.now()))};
  speech.onresult=event=>{const results=Array.from(event.results);const result=results.find(item=>item.isFinal!==false)||results[results.length-1];const alternatives=Array.from(result||[]).map(x=>x.transcript);const text=alternatives[0]||'';SetHeard(text);
  if(result?.isFinal===false){SetMessage('ได้ยินว่า “'+text+'” กำลังรับคำสั่ง…');return;}
+ if(!text.trim())return;
+ received=true;stop();
  const menu=alternatives.map(voiceMenu).find(Boolean);
- if(!menu){received=false;SetMessage('ได้ยินว่า “'+text+'” ยังจับคู่เมนูไม่ได้ กำลังฟังต่อ ลองพูดชื่อเมนูอีกครั้ง หรือแก้ข้อความด้านล่าง');return;}
- received=true;stop();navigate(menu,text);
+ if(!menu){SetMessage('หยุดฟังแล้ว ได้ยินว่า “'+text+'” แต่ยังจับคู่เมนูไม่ได้ กรุณาแก้ข้อความด้านล่าง หรือกดไมโครโฟนเพื่อสั่งใหม่');return;}
+ navigate(menu,text);
  };
  speech.onerror=event=>{if(event.error==='no-speech'&&Date.now()<deadline){SetMessage('ยังฟังอยู่ครับ พูดชื่อเมนูได้เลย');return;}received=true;const errors:Record<string,string>={'not-allowed':'กรุณาอนุญาตไมโครโฟนในเบราว์เซอร์ แล้วลองอีกครั้ง','service-not-allowed':'บริการรู้จำเสียงยังไม่พร้อมใช้งานในเบราว์เซอร์นี้','audio-capture':'ไม่พบไมโครโฟน กรุณาตรวจการเชื่อมต่อ','no-speech':'ยังไม่ได้ยินเสียง กรุณาลองพูดอีกครั้ง','network':'เชื่อมบริการรู้จำเสียงไม่ได้ กรุณาตรวจอินเทอร์เน็ต','language-not-supported':'เบราว์เซอร์นี้ยังไม่รองรับการรู้จำเสียงภาษาไทย'};stop();SetMessage(errors[event.error]||'รับคำสั่งเสียงไม่สำเร็จ กรุณาลองใหม่')};
  speech.onend=()=>{if(current.current!==speech)return;if(!received&&Date.now()<deadline&&!document.hidden&&!latest.current.disabled){try{speech.start();return;}catch{}}current.current=null;if(timer.current)clearTimeout(timer.current);SetListening(false);if(!received)SetMessage('ครบเวลารอคำสั่งแล้ว กดไมโครโฟนเพื่อลองใหม่ หรือพิมพ์ชื่อเมนูด้านล่าง')};
