@@ -1,3 +1,4 @@
+import {ssoBusinessDetails} from './businessDetails';
 import NationalIdInput from './NationalIdInput';
 import {ssoTotals} from './ssoReport';
 import {createSsoPdf} from './ssoPdf';
@@ -12,7 +13,7 @@ import {logUsage} from './backend';
 const uid=()=>crypto.randomUUID();
 function download(data:BlobPart,name:string,type:string){const url=URL.createObjectURL(new Blob([data],{type})),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),5000);}
 export default function SsoSubmissionEditor({state:s,month,onClose}:{state:State,month:string,onClose:()=>void}){
- const [f,set]=useState<SsoSubmission>({account:'9600019339',branch:'000000',business:s.business,month,date:today(),employeeRate:'5',employerRate:'5',rows:[]});
+ const [f,set]=useState<SsoSubmission>({account:'9600019339',branch:'000000',...ssoBusinessDetails(s),month,date:today(),employeeRate:'5',employerRate:'5',rows:[]});
  const [pdfBusy,PdfBusy]=useState(false),[checked,Checked]=useState(false);
  const table=useRef<HTMLDivElement>(null);
  const selected=selectedSso(f),selectedCount=selected.rows.length;
