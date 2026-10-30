@@ -106,3 +106,5 @@
 
 .sso-access-fields{border:0;margin:0;padding:0;min-width:0}.sso-access-fields:disabled{opacity:.65}
 .account-permission{border:1px solid #d7e5da;border-radius:12px;padding:18px;display:grid;gap:12px;min-width:0}.account-permission legend{font-weight:600;padding:0 8px}.account-permission .check-row{display:flex;align-items:center;gap:10px}.account-permission input[type=checkbox]{width:20px;height:20px;accent-color:#178468}
+
+.sso-unsaved-status{color:#8a4b08;background:#fff7e8;padding:10px 12px;border-radius:8px}
