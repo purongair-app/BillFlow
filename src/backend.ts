@@ -28,8 +28,21 @@ export async function confirmLineDocument(state:State,revision:number,id:string,
 
 export async function listApplicants(){const {data,error}=await supabase!.rpc('billflow_list_applicants');if(error)throw Error('โหลดผู้สมัครรอกำหนดสิทธิ์ไม่สำเร็จ กรุณาลองใหม่');return data as Applicant[];}
 
-export type SidebarProfile={name?:string,photo?:string,email?:string,linked?:boolean,linkStatus?:'linked'|'unlinked'|'ambiguous',employeeId?:string,code?:string,position?:string,phone?:string,address?:string,bankName?:string,bankAccountName?:string,bankAccountNumber?:string};
-export async function readProfile():Promise<SidebarProfile>{const {data,error}=await supabase!.rpc('billflow_my_profile');if(error)throw Error('โหลดรูปบัญชีไม่สำเร็จ');return data||{};}
+export type SidebarProfile={customPhoto?:boolean,name?:string,photo?:string,email?:string,linked?:boolean,linkStatus?:'linked'|'unlinked'|'ambiguous',employeeId?:string,code?:string,position?:string,phone?:string,address?:string,bankName?:string,bankAccountName?:string,bankAccountNumber?:string};
+export async function readProfile():Promise<SidebarProfile>{const {data,error}=await supabase!.rpc('billflow_my_profile');if(error)throw Error('โหลดรูปบัญชีไม่สำเร็จ');const profile:SidebarProfile=data||{};if(activeAccess?.owner){const {data:{user}}=await supabase!.auth.getUser();const id=user?.user_metadata?.billflow_owner_photo_id;if(typeof id==='string'&&/^[a-f0-9-]{36}$/.test(id)){const {data:image,error:imageError}=await supabase!.storage.from('billflow-receipts').createSignedUrl((activeAccess.workspaceOwner||user!.id)+'/owner-profile/'+id,300);if(!imageError&&image?.signedUrl)return {...profile,photo:image.signedUrl,customPhoto:true};}}return profile;}
+
+export async function saveOwnerProfilePhoto(photo:string):Promise<SidebarProfile>{
+ const access=await readAccess();if(!access.owner)throw Error('เฉพาะเจ้าของระบบที่เปลี่ยนไอคอนนี้ได้');
+ if(photo&&(photo.length>200000||!/^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(photo)))throw Error('รูปไอคอนไม่ถูกต้อง กรุณาเลือก JPG, PNG หรือ WebP ใหม่');
+ const {data:{user},error:authError}=await supabase!.auth.getUser();if(authError||!user)throw Error('กรุณาเข้าสู่ระบบอีกครั้ง');
+ const folder=(access.workspaceOwner||user.id)+'/owner-profile/';const oldId=user.user_metadata?.billflow_owner_photo_id;let id:string|null=null;
+ if(photo){id=crypto.randomUUID();const blob=await (await fetch(photo)).blob();const {error}=await supabase!.storage.from('billflow-receipts').upload(folder+id,blob,{contentType:blob.type,upsert:false});if(error)throw Error('อัปโหลดรูปไอคอนไม่สำเร็จ กรุณาลองอีกครั้ง');}
+ // Keep only a short object ID in Auth metadata, never image bytes in the JWT.
+ const {error}=await supabase!.auth.updateUser({data:{billflow_owner_photo_id:id}});if(error){if(id)await supabase!.storage.from('billflow-receipts').remove([folder+id]);throw Error('บันทึกรูปไอคอนไม่สำเร็จ กรุณาลองอีกครั้ง');}
+ if(typeof oldId==='string'&&/^[a-f0-9-]{36}$/.test(oldId)&&oldId!==id)void supabase!.storage.from('billflow-receipts').remove([folder+oldId]);
+ void logUsage('account.updated','owner-profile-photo');return readProfile();
+}
+
 
 export type LinkableAccount={id:string,email:string,name:string,confirmed:boolean};
 export async function listLinkableAccounts():Promise<LinkableAccount[]>{
