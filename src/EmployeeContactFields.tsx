@@ -1,9 +1,10 @@
+import NationalIdInput from './NationalIdInput';
 import BankNameInput from './BankNameInput';
 import type {EmployeeDetails} from './employeeDetails';
 export default function EmployeeContactFields({value,onChange,disabled=false,bankNames=[]}:{bankNames?:string[],value:EmployeeDetails,onChange:(value:EmployeeDetails)=>void,disabled?:boolean}){
  return <>
   <fieldset className="entry-details-fieldset employee-contact-fields"><legend>ข้อมูลส่วนบุคคล</legend><div className="form-grid">
-   <label>เลขบัตรประชาชน<input aria-label="เลขบัตรประชาชนพนักงาน" type="text" inputMode="numeric" autoComplete="off" value={value.nationalId} onChange={e=>onChange({...value,nationalId:e.target.value})} maxLength={13} pattern="[0-9]{13}" disabled={disabled} placeholder="ตัวเลข 13 หลัก"/></label>
+   <label>เลขบัตรประชาชน<NationalIdInput aria-label="เลขบัตรประชาชนพนักงาน" value={value.nationalId} onChange={nationalId=>onChange({...value,nationalId})} disabled={disabled}/><small>ตัวเลข 13 หลัก ระบบเว้นวรรคและขีดให้อัตโนมัติ</small></label>
    <label>วันเดือนปีเกิด<input aria-label="วันเดือนปีเกิดพนักงาน" type="date" lang="th-TH" value={value.birthDate} onChange={e=>onChange({...value,birthDate:e.target.value})} disabled={disabled}/>{value.birthDate&&Number.isFinite(Date.parse(value.birthDate))&&<small>{new Date(value.birthDate+'T12:00:00Z').toLocaleDateString('th-TH',{day:'numeric',month:'long',year:'numeric',timeZone:'Asia/Bangkok'})}</small>}</label>
   </div></fieldset>
   <fieldset className="entry-details-fieldset employee-contact-fields"><legend>ข้อมูลติดต่อ</legend>

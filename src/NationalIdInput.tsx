@@ -1,0 +1,8 @@
+import {useLayoutEffect,useRef} from 'react';
+import {formatNationalId,nationalIdCaret,nationalIdDigits} from './nationalId';
+type Props=Omit<React.InputHTMLAttributes<HTMLInputElement>,'value'|'onChange'|'type'|'maxLength'|'pattern'|'inputMode'>&{value:string,onChange:(digits:string)=>void};
+export default function NationalIdInput({value,onChange,...props}:Props){
+ const ref=useRef<HTMLInputElement>(null),caret=useRef<number|null>(null);const display=formatNationalId(value);
+ useLayoutEffect(()=>{if(caret.current!==null&&ref.current===document.activeElement){const pos=nationalIdCaret(display,caret.current);ref.current?.setSelectionRange(pos,pos);}caret.current=null;});
+ return <input {...props} ref={ref} type="text" inputMode="numeric" autoComplete="off" maxLength={25} pattern="[0-9] - [0-9]{4} - [0-9]{5} - [0-9]{2} - [0-9]" placeholder="X - XXXX - XXXXX - XX - X" title="กรอกตัวเลข 13 หลัก รูปแบบ X - XXXX - XXXXX - XX - X" value={display} onChange={e=>{caret.current=nationalIdDigits(e.target.value.slice(0,e.target.selectionStart??e.target.value.length)).length;onChange(nationalIdDigits(e.target.value));}} onKeyDown={e=>{props.onKeyDown?.(e);if(e.defaultPrevented||e.ctrlKey||e.metaKey||e.altKey||!['Backspace','Delete'].includes(e.key))return;const input=e.currentTarget,start=input.selectionStart??0,end=input.selectionEnd??start;if(start!==end)return;const count=nationalIdDigits(input.value.slice(0,start)).length,digits=nationalIdDigits(value),index=e.key==='Backspace'?count-1:count;if(index<0||index>=digits.length)return;e.preventDefault();caret.current=e.key==='Backspace'?count-1:count;onChange(digits.slice(0,index)+digits.slice(index+1));}}/>;
+}
