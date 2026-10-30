@@ -232,3 +232,21 @@ test('usage browser classification respects overlapping Edge and Samsung tokens 
 import "./bill-details.test.ts";
 
 import "./line-domain.test.ts";
+
+test('LINE imports link registered contacts by code, retain clean names and protect ambiguous or inactive contacts',()=>{
+ const s=initialState();s.contacts=[
+  {id:'customer-a',code:'CT001',name:'ลูกค้าทดสอบ',kind:'customer',note:'',active:true},
+  {id:'creditor-a',code:'CR001',name:'เจ้าหนี้ทดสอบ',kind:'creditor',note:'',active:true},
+  {id:'customer-b',code:'CT002',name:'ลูกค้าทดสอบ',kind:'customer',note:'',active:true},
+  {id:'inactive',code:'CT003',name:'ปิดใช้งาน',kind:'customer',note:'',active:false}];
+ const doc=inboxDocument({documentType:'invoice',contact:'ลูกค้าทดสอบ',amount:10000,title:'QA contact'});
+ const ambiguous=suggestImport(s,doc);assert.equal(ambiguous.contact,'ลูกค้าทดสอบ');
+ const debt=importLineDocument(s,doc,{...ambiguous,contact:'CT002 · ลูกค้าทดสอบ'}).state.debts[0];
+ assert.equal(debt.contactId,'customer-b');assert.equal(debt.name,'ลูกค้าทดสอบ');
+ const unique=suggestImport(s,{...doc,extracted:{...doc.extracted,contact:'เจ้าหนี้ทดสอบ'}});
+ assert.equal(unique.contact,'CR001 · เจ้าหนี้ทดสอบ');
+ const entry=importLineDocument(s,{...doc,extracted:{documentType:'receipt'}},{...unique,documentType:'receipt',type:'expense',account:'cash',paymentMethod:'cash'}).state.entries[0];
+ assert.equal(entry.contactId,'creditor-a');assert.equal(entry.contact,'เจ้าหนี้ทดสอบ');
+ assert.throws(()=>importLineDocument(s,doc,{...ambiguous,contact:'CT003 · ปิดใช้งาน'}),/ปิดใช้งาน/);
+ assert.equal(s.debts.length,0);assert.equal(s.entries.length,0);
+});
