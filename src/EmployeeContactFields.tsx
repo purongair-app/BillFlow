@@ -1,3 +1,5 @@
+import {thaiDateLabel} from './thaiDate';
+import ThaiDateInput from './ThaiDateInput';
 import NationalIdInput from './NationalIdInput';
 import BankNameInput from './BankNameInput';
 import type {EmployeeDetails} from './employeeDetails';
@@ -5,7 +7,7 @@ export default function EmployeeContactFields({value,onChange,disabled=false,ban
  return <>
   <fieldset className="entry-details-fieldset employee-contact-fields"><legend>ข้อมูลส่วนบุคคล</legend><div className="form-grid">
    <label>เลขบัตรประชาชน<NationalIdInput aria-label="เลขบัตรประชาชนพนักงาน" value={value.nationalId} onChange={nationalId=>onChange({...value,nationalId})} disabled={disabled}/><small>ตัวเลข 13 หลัก ระบบเว้นวรรคและขีดให้อัตโนมัติ</small></label>
-   <label>วันเดือนปีเกิด<input aria-label="วันเดือนปีเกิดพนักงาน" type="date" lang="th-TH" value={value.birthDate} onChange={e=>onChange({...value,birthDate:e.target.value})} disabled={disabled}/>{value.birthDate&&Number.isFinite(Date.parse(value.birthDate))&&<small>{new Date(value.birthDate+'T12:00:00Z').toLocaleDateString('th-TH',{day:'numeric',month:'long',year:'numeric',timeZone:'Asia/Bangkok'})}</small>}</label>
+   <label>วันเดือนปีเกิด<ThaiDateInput aria-label="วันเดือนปีเกิดพนักงาน" type="date" lang="th-TH" value={value.birthDate} onChange={e=>onChange({...value,birthDate:e.target.value})} disabled={disabled}/>{value.birthDate&&Number.isFinite(Date.parse(value.birthDate))&&<small>{thaiDateLabel(value.birthDate,{day:'numeric',month:'long',year:'numeric'})}</small>}</label>
   </div></fieldset>
   <fieldset className="entry-details-fieldset employee-contact-fields"><legend>ข้อมูลติดต่อ</legend>
    <label>ที่อยู่<textarea aria-label="ที่อยู่พนักงาน" value={value.address} onChange={e=>onChange({...value,address:e.target.value})} maxLength={1000} rows={3} disabled={disabled} placeholder="บ้านเลขที่ หมู่ ถนน ตำบล อำเภอ จังหวัด รหัสไปรษณีย์"/></label>

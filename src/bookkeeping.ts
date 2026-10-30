@@ -1,3 +1,4 @@
+import {thaiToday} from './thaiDate.ts';
 import {grossPay,netPay} from './payroll.ts';
 import {billPostingParts} from './billPosting.ts';
 import {netAmount,withholdingAmount} from './withholding.ts';
@@ -26,7 +27,7 @@ export function chartOfAccounts(s:State):ChartAccount[]{
  for(const a of s.accounts){if(chart.some(c=>c.cashAccountId===a.id))continue;const prefix=a.kind==='cash'||a.id==='cash'?'101':'102';let seq=1;while(chart.some(c=>c.code===prefix+String(seq).padStart(3,'0')))seq++;chart.push({code:prefix+String(seq).padStart(3,'0'),name:a.name,group:'asset',section:'เงินสดและเงินฝาก',normal:'debit',active:true,cashAccountId:a.id});}
  return chart.sort((a,b)=>a.code.localeCompare(b.code));
 }
-export function bookState(s:State):Bookkeeping{return {chart:chartOfAccounts(s),allocations:s.bookkeeping?.allocations||{},journals:s.bookkeeping?.journals||[],openingReviewed:s.bookkeeping?.openingReviewed||false,openingDate:s.bookkeeping?.openingDate||[...s.entries.map(e=>e.date)].sort()[0]||new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Bangkok'})};}
+export function bookState(s:State):Bookkeeping{return {chart:chartOfAccounts(s),allocations:s.bookkeeping?.allocations||{},journals:s.bookkeeping?.journals||[],openingReviewed:s.bookkeeping?.openingReviewed||false,openingDate:s.bookkeeping?.openingDate||[...s.entries.map(e=>e.date)].sort()[0]||thaiToday()};}
 export function suggestedCode(e:Entry){if(e.type==='income')return e.category==='ขายสินค้า'?'420000':e.category==='ค่าบริการ'?'410000':'490000';if(e.expenseAccountType==='owner')return '330000';return ({fuel:'540000',meal:'521000',electricity:'531000',water:'532000'} as Record<string,string>)[e.expenseKind||'']||({'อะไหล่และวัสดุ':'510000','ค่าเดินทาง':'541000','เงินเดือน':'520000','ค่าเช่า':'530000','ค่าน้ำค่าไฟ':'531000'} as Record<string,string>)[e.category]||'590000';}
 export type Posting=Journal&{entryId?:string,reviewed:boolean};
 export function postings(s:State):Posting[]{
