@@ -28,3 +28,12 @@ test('salary partial payments do not change social liability and empty months ha
  assert.deepEqual(monthlySocialContributions([p],'2026-09'),{rows:[],employee:0,employer:0,total:0});
  const noEmployeeDeduction={...p,deductions:[],employerSocial:10000};assert.equal(totalSocial(noEmployeeDeduction),10000);assert.equal(monthlySocialContributions([noEmployeeDeduction],'2026-10').employee,0);
 });
+
+test('masked bank payment histories keep payroll payable totals valid while new payments use visible accounts',()=>{
+ const {s,p}=setup();s.accounts=s.accounts.filter(a=>a.id==='cash');
+ p.payments=[{id:'hidden',date:'2026-10-31',amount:500000,account:'__restricted__',method:'other',reference:'',note:'',scopedReadOnly:true}];
+ validateState(s);assert.equal(outstandingPay(p),1625000);
+ const next=structuredClone(s),q=next.payroll![0],x={...payment('visible',100000),account:'cash'};q.payments.push(x);next.entries.push(payrollPaymentEntry(q,x));
+ validateState(next);validatePayrollChange(s,next);assert.equal(outstandingPay(q),1525000);assert.equal(balance(next,'cash'),-100000);
+ const invalid=structuredClone(next);invalid.payroll![0].payments[0].reference='hidden bank reference';assert.throws(()=>validateState(invalid));
+});

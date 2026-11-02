@@ -16,6 +16,7 @@ test('account scopes enforce projection, merge, RPC authorization and receipt RL
  create table billflow_private.workspace(id int primary key,owner uuid);
  create table public.billflow_members(user_id uuid primary key,display_name text,menus text[],edit_menus text[],enabled boolean,updated_at timestamptz default now(),role text default 'employee');
  create table public.billflow_ledgers(owner uuid primary key,payload jsonb,revision bigint default 1,updated_at timestamptz);
+ create table public.billflow_line_inbox(owner uuid,file_id uuid,status text);
  create table storage.objects(name text,bucket_id text); alter table storage.objects enable row level security;
  create policy workspace_files on storage.objects for select to authenticated using(true);
  grant usage on schema public,storage,billflow_private,auth to authenticated;
@@ -42,9 +43,9 @@ test('account scopes enforce projection, merge, RPC authorization and receipt RL
  await t.test('cannot forge a hidden row, move a row to hidden account, or add an unassigned account',async()=>{await assert.rejects(()=>merge([source.entries[1]]),/ACCOUNT_SCOPE_HIDDEN/);await assert.rejects(()=>merge([entry('new','bank')]),/ACCOUNT_SCOPE_INVALID/);await assert.rejects(()=>merge([{id:'new',name:'New',opening:0}],'accounts'),/ACCOUNT_SCOPE_INVALID/)});
  await t.test('cannot edit or delete masked transfers',async()=>{const p=await project(['cash']);await assert.rejects(()=>merge(p.entries.filter(e=>e.id!=='out')),/ACCOUNT_SCOPE_READ_ONLY/);p.entries.find(e=>e.id==='in').amount=1;await assert.rejects(()=>merge(p.entries),/ACCOUNT_SCOPE_READ_ONLY/)});
  await t.test('only owner can set scopes; unknown and duplicate account ids fail',async()=>{await as(member);await assert.rejects(()=>db.query("select public.billflow_manage_members_v3('save',p_accounts=>$1)",[['cash']]),/OWNER_ONLY/);await as(owner);await assert.rejects(()=>db.query("select public.billflow_manage_members_v3('save',p_accounts=>$1)",[['no-such-account']]),/ACCOUNT_SCOPE_INVALID/);await assert.rejects(()=>db.query("select public.billflow_manage_members_v3('save',p_accounts=>$1)",[['cash','cash']]),/ACCOUNT_SCOPE_INVALID/);await db.query("select public.billflow_manage_members_v3('save',p_email=>'member@example.test',p_accounts=>$1)",[['cash']]);assert.deepEqual((await db.query('select account_ids from public.billflow_members')).rows[0].account_ids,['cash'])});
- await t.test('access context filters global menus and refreshes account ids',async()=>{await as(member);const a=(await db.query('select billflow_private.access_context() a')).rows[0].a;assert.deepEqual(a.access.accountIds,['cash']);assert.ok(!a.access.menus.includes('payroll'));assert.ok(a.access.menus.includes('accounts'));assert.equal(a.payload.accounts.length,1)});
+ await t.test('access context filters global menus and refreshes account ids',async()=>{await as(member);const a=(await db.query('select billflow_private.access_context() a')).rows[0].a;assert.deepEqual(a.access.accountIds,['cash']);assert.ok(a.access.menus.includes('payroll'));assert.ok(a.access.menus.includes('accounts'));assert.equal(a.payload.accounts.length,1)});
  await t.test('workspace save rehydrates canonical hidden rows and rejects stale revisions',async()=>{const p=(await db.query('select billflow_private.access_context() a')).rows[0].a.payload;p.entries.find(e=>e.id==='visible').title='Saved scoped edit';await db.query('select billflow_private.save_workspace($1,1)',[JSON.stringify(p)]);const saved=(await db.query('select payload from public.billflow_ledgers')).rows[0].payload;assert.deepEqual(saved.entries.find(e=>e.id==='hidden'),source.entries[1]);assert.deepEqual(saved.entries.find(e=>e.id==='out'),source.entries[2]);assert.equal(saved.accounts.length,2);await assert.rejects(()=>db.query('select billflow_private.save_workspace($1,1)',[JSON.stringify(p)]),/CONFLICT/)});
- await t.test('workspace save rejects hidden entry, cross-transfer deletion and global ledger injection',async()=>{const p=(await db.query('select billflow_private.access_context() a')).rows[0].a.payload;const attack=structuredClone(p);attack.entries.push(source.entries[1]);await assert.rejects(()=>db.query('select billflow_private.save_workspace($1,2)',[JSON.stringify(attack)]),/ACCOUNT_SCOPE_HIDDEN/);const attack2=structuredClone(p);attack2.entries=attack2.entries.filter(e=>e.id!=='in');await assert.rejects(()=>db.query('select billflow_private.save_workspace($1,2)',[JSON.stringify(attack2)]),/ACCOUNT_SCOPE_READ_ONLY/);p.debts=[{id:'injected'}];await assert.rejects(()=>db.query('select billflow_private.save_workspace($1,2)',[JSON.stringify(p)]),/ACCOUNT_SCOPE_GLOBAL/)});
+ await t.test('workspace save rejects hidden entry, cross-transfer deletion and global ledger injection',async()=>{const p=(await db.query('select billflow_private.access_context() a')).rows[0].a.payload;const attack=structuredClone(p);attack.entries.push(source.entries[1]);await assert.rejects(()=>db.query('select billflow_private.save_workspace($1,2)',[JSON.stringify(attack)]),/ACCOUNT_SCOPE_HIDDEN/);const attack2=structuredClone(p);attack2.entries=attack2.entries.filter(e=>e.id!=='in');await assert.rejects(()=>db.query('select billflow_private.save_workspace($1,2)',[JSON.stringify(attack2)]),/ACCOUNT_SCOPE_READ_ONLY/);p.accountHolders=['injected'];await assert.rejects(()=>db.query('select billflow_private.save_workspace($1,2)',[JSON.stringify(p)]),/ACCOUNT_SCOPE_GLOBAL/)});
  await t.test('restricted Storage RLS denies hidden receipts despite existing broad allow policy',async()=>{await db.query("insert into storage.objects values($1,'billflow-receipts'),($2,'billflow-receipts'),($3,'billflow-receipts')",[owner+'/allowed-file',owner+'/secret-file',owner+'/cross-file']);await db.exec('set role authenticated');const rows=(await db.query('select name from storage.objects')).rows;assert.deepEqual(rows.map(x=>x.name),[owner+'/allowed-file']);await db.exec('reset role')});
  await t.test('selecting all current accounts enables selected global menus and debt saves without rewriting stored scope',async()=>{
   await db.query('update public.billflow_members set account_ids=$1',[['cash','bank']]);await as(member);
@@ -58,18 +59,50 @@ test('account scopes enforce projection, merge, RPC authorization and receipt RL
   assert.equal((await db.query('select payload from public.billflow_ledgers')).rows[0].payload.debts[0].id,'debt-visible');
   assert.equal((await db.query('select billflow_private.scoped_receipt_access($1) ok',[owner+'/secret-file'])).rows[0].ok,true);
  });
- await t.test('future accounts restore fixed-scope restrictions; empty and partial selections never gain global access',async()=>{
+ await t.test('future accounts remain hidden while independent module selections are preserved',async()=>{
   const ledger=(await db.query('select payload from public.billflow_ledgers')).rows[0].payload;
   const future=structuredClone(ledger);future.accounts.push({id:'future',name:'Future',opening:0});
   await db.query('update public.billflow_ledgers set payload=$1',[JSON.stringify(future)]);
   const ctx=(await db.query('select billflow_private.access_context() a')).rows[0].a;
-  assert.deepEqual(ctx.access.accountIds,['cash','bank']);assert.ok(!ctx.access.menus.includes('debts'));assert.equal(ctx.payload.accounts.length,2);assert.deepEqual(ctx.payload.debts,[]);
+  assert.deepEqual(ctx.access.accountIds,['cash','bank']);assert.ok(ctx.access.menus.includes('debts'));assert.equal(ctx.payload.accounts.length,2);assert.equal(ctx.payload.debts.length,1);
   assert.equal((await db.query('select billflow_private.scoped_receipt_access($1) ok',[owner+'/nonexistent-file'])).rows[0].ok,false);
   for(const ids of [[],['cash']]){
    assert.deepEqual((await db.query('select billflow_private.effective_account_scope($1,$2) ids',[JSON.stringify(ledger),ids])).rows[0].ids,ids);
   }
   assert.deepEqual((await db.query('select billflow_private.effective_account_scope($1,$2) ids',[JSON.stringify({accounts:[]}),['cash']])).rows[0].ids,['cash']);
   await db.query('update public.billflow_ledgers set payload=$1',[JSON.stringify(ledger)]);
+ });
+ await t.test('partial account scope saves shared modules and protects hidden debt settlements and payroll payments',async()=>{
+  const baseline=(await db.query('select payload,revision from public.billflow_ledgers')).rows[0];
+  const ledger=structuredClone(baseline.payload);
+  ledger.debts=[{id:'d1',type:'receivable',name:'Customer',title:'Invoice',amount:1000,due:'2026-11-30'}];
+  ledger.entries.push(entry('hidden-debt','bank',{amount:400,debtId:'d1'}));
+  ledger.payroll=[{id:'p1',note:'shared payroll',payments:[{id:'hidden-pay',account:'bank',amount:500,date:'2026-10-30',method:'bank',reference:'SECRET REF',note:'SECRET BANK',file:{id:'payroll-secret-file'}}]}];
+  await db.query('update public.billflow_ledgers set payload=$1',[JSON.stringify(ledger)]);
+  await db.query('update public.billflow_members set account_ids=$1',[['cash']]);await as(member);
+  const ctx=(await db.query('select billflow_private.access_context() a')).rows[0].a;
+  for(const menu of ['debts','payroll','budgets','inbox'])assert.ok(ctx.access.menus.includes(menu));
+  assert.deepEqual(ctx.payload.accounts.map(a=>a.id),['cash']);assert.equal(ctx.payload.debts[0].scopedPaid,400);
+  assert.equal(ctx.payload.payroll[0].payments[0].account,'__restricted__');assert.equal(ctx.payload.payroll[0].payments[0].scopedReadOnly,true);assert.ok(!JSON.stringify(ctx.payload).includes('SECRET'));
+  const attack=structuredClone(ctx.payload);attack.payroll[0].payments[0].amount=1;
+  await assert.rejects(()=>db.query('select billflow_private.save_workspace($1,$2)',[JSON.stringify(attack),ctx.revision]),/ACCOUNT_SCOPE_READ_ONLY/);
+  const debtAttack=structuredClone(ctx.payload);debtAttack.debts[0].scopedPaid=0;
+  await assert.rejects(()=>db.query('select billflow_private.save_workspace($1,$2)',[JSON.stringify(debtAttack),ctx.revision]),/ACCOUNT_SCOPE_INVALID/);
+  const bankAttack=structuredClone(ctx.payload);bankAttack.payroll[0].payments.push({id:'forged',account:'bank',amount:10});
+  await assert.rejects(()=>db.query('select billflow_private.save_workspace($1,$2)',[JSON.stringify(bankAttack),ctx.revision]),/ACCOUNT_SCOPE_INVALID/);
+  ctx.payload.debts[0].title='Updated invoice';ctx.payload.debts.push({id:'new-debt',type:'payable',name:'Supplier',title:'New payable',amount:100,due:'2026-11-30'});
+  ctx.payload.budgets=[{id:'new-budget',category:'Rent',amount:100}];ctx.payload.recurringExpenses=[{id:'recurring',title:'Monthly rent'}];
+  ctx.payload.payroll[0].note='Updated payroll';ctx.payload.payroll[0].payments.push({id:'visible-pay',account:'cash',amount:10,date:'2026-11-01',method:'cash',reference:'',note:''});
+  ctx.payload.entries.push(entry('visible-debt','cash',{debtId:'d1',amount:100}));
+  await db.query('select billflow_private.save_workspace($1,$2)',[JSON.stringify(ctx.payload),ctx.revision]);
+  const saved=(await db.query('select payload from public.billflow_ledgers')).rows[0].payload;
+  assert.deepEqual(saved.entries.find(e=>e.id==='hidden-debt'),ledger.entries.find(e=>e.id==='hidden-debt'));
+  assert.equal(saved.debts[0].title,'Updated invoice');assert.equal(saved.debts[0].scopedPaid,undefined);assert.equal(saved.debts.length,2);
+  assert.deepEqual(saved.payroll[0].payments[0],ledger.payroll[0].payments[0]);assert.equal(saved.payroll[0].payments[1].account,'cash');assert.equal(saved.budgets.length,1);
+  assert.equal((await db.query('select billflow_private.scoped_receipt_access($1) ok',[owner+'/payroll-secret-file'])).rows[0].ok,false);
+  const refreshed=(await db.query('select billflow_private.access_context() a')).rows[0].a;
+  assert.equal(refreshed.payload.debts[0].scopedPaid,400);assert.equal(refreshed.payload.entries.find(e=>e.id==='visible-debt').debtId,'d1');
+  await db.query('update public.billflow_ledgers set payload=$1,revision=$2',[JSON.stringify(baseline.payload),baseline.revision]);
  });
  await t.test('owner keeps complete ledger and receipt access',async()=>{await as(owner);const p=(await db.query('select billflow_private.access_context() a')).rows[0].a;assert.equal(p.payload.accounts.length,2);assert.equal(p.access.owner,true);await db.exec('set role authenticated');assert.equal((await db.query('select name from storage.objects')).rows.length,3);await db.exec('reset role')});
  }finally{await db.close()}

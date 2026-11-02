@@ -43,6 +43,7 @@ begin
  if p_target not in ('entry','debt','payroll') then raise exception 'INVALID_TARGET';end if;
  collection:=case when p_target='entry' then 'entries' when p_target='payroll' then 'payroll' else 'debts' end;
  select payload into old_payload from public.billflow_ledgers where owner=boss for update;
+ if auth.uid()<>boss then old_payload:=billflow_private.access_context()->'payload';end if;
  if exists(select 1 from jsonb_array_elements(coalesce(old_payload->collection,'[]')) x where x->>'id'=p_id::text) then raise exception 'ALREADY_IMPORTED';end if;
  select x into item from jsonb_array_elements(new_payload->collection) x where x->>'id'=p_id::text;
  if item is null or item->'file'->>'id' is distinct from doc.file_id::text then raise exception 'INVALID_IMPORT';end if;
@@ -65,7 +66,7 @@ begin
  a:=billflow_private.access_context()->'access';
  if auth.uid()<>boss and not(a->'menus' ? 'inbox') then raise exception 'MENU_FORBIDDEN:inbox';end if;
  if p_action='inbox' then
-  select coalesce(jsonb_agg(to_jsonb(d) order by d.created_at desc),'[]') into docs from (select id,file_id,mime,file_size,status,extracted,last_error,created_at,confirmed_target,duplicate_of from public.billflow_line_inbox where owner=boss order by created_at desc limit 100) d;
+  select coalesce(jsonb_agg(to_jsonb(d) order by d.created_at desc),'[]') into docs from (select id,file_id,mime,file_size,status,extracted,last_error,created_at,confirmed_target,duplicate_of from public.billflow_line_inbox where owner=boss and (auth.uid()=boss or status<>'confirmed' or billflow_private.scoped_receipt_access(boss::text||'/'||file_id::text)) order by created_at desc limit 100) d;
   select secret_ref,model into ai from billflow_private.ocr_settings where owner=boss;
   return jsonb_build_object('documents',docs,'ocrConfigured',ai.secret_ref is not null,'model',coalesce(ai.model,'gemini-3.5-flash-lite'));
  end if;

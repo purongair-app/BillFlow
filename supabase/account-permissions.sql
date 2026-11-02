@@ -14,7 +14,7 @@ revoke all on function billflow_private.effective_account_scope(jsonb,text[]) fr
 
 create or replace function billflow_private.project_member_payload(p jsonb, menus text[], ids text[]) returns jsonb
 language plpgsql immutable security invoker set search_path='' as $$
-declare result jsonb; rows jsonb:='[]'; e jsonb; visible_from boolean; visible_to boolean;
+declare result jsonb; rows jsonb:='[]'; e jsonb; visible_from boolean; visible_to boolean; debt_rows jsonb:='[]'; payroll_rows jsonb:='[]'; slip jsonb; payments jsonb; payment jsonb;
 begin
  result:=billflow_private.project_payload(p,menus);
  if ids is null then return result;end if;
@@ -26,17 +26,34 @@ begin
   if e->>'type'='transfer' and not(visible_from and visible_to) then
    -- Keep a transfer, so income/expense summaries and balances remain correct.
    e:=jsonb_build_object('id',e->'id','type','transfer','date',e->'date','title','โอนระหว่างบัญชี (ซ่อนรายละเอียดบัญชีที่ไม่ได้รับสิทธิ์)','amount',e->'amount','account',case when visible_from then e->>'account' else '__restricted__' end,'to',case when visible_to then e->>'to' else '__restricted__' end,'category','โอนระหว่างบัญชี','contact','','note','','scopedTransfer',true,'scopedReadOnly',true);
-  elsif coalesce(e->>'debtId','')<>'' or coalesce(e->>'payrollId','')<>'' then
-   e:=(e-'debtId'-'payrollId'-'payrollPaymentId'-'payrollReversal')||jsonb_build_object('scopedReadOnly',true);
+  elsif coalesce(e->>'payrollId','')<>'' and not('payroll'=any(menus)) then
+   e:=(e-'payrollId'-'payrollPaymentId'-'payrollReversal')||jsonb_build_object('scopedReadOnly',true);
   end if;
   rows:=rows||jsonb_build_array(e);
  end loop;
- return result||jsonb_build_object('entries',rows,'debts','[]'::jsonb,'payroll','[]'::jsonb,'budgets','[]'::jsonb,'recurringExpenses','[]'::jsonb,'recurringExpenseNames',null,'bookkeeping',case when jsonb_typeof(p->'bookkeeping')='object' then (p->'bookkeeping')||jsonb_build_object('chart',coalesce((select jsonb_agg(a) from jsonb_array_elements(p->'bookkeeping'->'chart') a where coalesce(a->>'cashAccountId','')='' or a->>'cashAccountId'=any(ids)),'[]'),'allocations',coalesce((select jsonb_object_agg(a.key,a.value) from jsonb_each(coalesce(p->'bookkeeping'->'allocations','{}')) a where exists(select 1 from jsonb_array_elements(rows) visible_entry where visible_entry->>'id'=a.key)),'{}'),'journals','[]'::jsonb) else null end,'accountHolders','[]'::jsonb,'documentSources','[]'::jsonb);
+ -- Shared module rights are independent of account visibility. Keep only a total
+ -- for hidden debt settlements; never send their bank IDs, metadata or files.
+ for e in select value from jsonb_array_elements(coalesce(result->'debts','[]')) loop
+  debt_rows:=debt_rows||jsonb_build_array(e||jsonb_build_object('scopedPaid',coalesce((select sum((x->>'amount')::bigint) from jsonb_array_elements(coalesce(p->'entries','[]')) x where x->>'debtId'=e->>'id' and not coalesce(x->>'account'=any(ids),false)),0)));
+ end loop;
+ if 'payroll'=any(menus) then
+  for slip in select value from jsonb_array_elements(coalesce(result->'payroll','[]')) loop
+   payments:='[]';
+   for payment in select value from jsonb_array_elements(coalesce(slip->'payments','[]')) loop
+    if not coalesce(payment->>'account'=any(ids),false) then
+     payment:=jsonb_build_object('id',payment->'id','date',payment->'date','amount',payment->'amount','account','__restricted__','method','other','reference','','note','','scopedReadOnly',true)||case when payment?'voidDate' then jsonb_build_object('voidDate',payment->'voidDate','voidReason','คืนรายการจากบัญชีที่ซ่อน') else '{}'::jsonb end;
+    end if;
+    payments:=payments||jsonb_build_array(payment);
+   end loop;
+   payroll_rows:=payroll_rows||jsonb_build_array(jsonb_set(slip,'{payments}',payments));
+  end loop;
+ end if;
+ return result||jsonb_build_object('entries',rows,'debts',debt_rows,'payroll',payroll_rows,'bookkeeping',case when jsonb_typeof(p->'bookkeeping')='object' then (p->'bookkeeping')||jsonb_build_object('chart',coalesce((select jsonb_agg(a) from jsonb_array_elements(p->'bookkeeping'->'chart') a where coalesce(a->>'cashAccountId','')='' or a->>'cashAccountId'=any(ids)),'[]'),'allocations',coalesce((select jsonb_object_agg(a.key,a.value) from jsonb_each(coalesce(p->'bookkeeping'->'allocations','{}')) a where exists(select 1 from jsonb_array_elements(rows) visible_entry where visible_entry->>'id'=a.key)),'{}'),'journals','[]'::jsonb) else null end,'accountHolders','[]'::jsonb);
 end $$;
 revoke all on function billflow_private.project_member_payload(jsonb,text[],text[]) from public,anon,authenticated;
 
 create or replace function billflow_private.scoped_menus(menus text[], ids text[]) returns text[] language sql immutable security invoker set search_path='' as $$
- select case when ids is null then menus else array(select x from unnest(menus) x where x<>all(array['debts','payroll','budgets','inbox'])) end;
+ select menus;
 $$;
 revoke all on function billflow_private.scoped_menus(text[],text[]) from public,anon,authenticated;
 CREATE OR REPLACE FUNCTION billflow_private.access_context()
@@ -105,6 +122,26 @@ begin
  return result;
 end $$;
 revoke all on function billflow_private.merge_scoped_rows(jsonb,jsonb,jsonb,text[],text) from public,anon,authenticated;
+
+create or replace function billflow_private.merge_scoped_payroll(old_rows jsonb,visible_rows jsonb,next_rows jsonb,ids text[]) returns jsonb
+language plpgsql immutable security invoker set search_path='' as $$
+declare result jsonb:='[]'; e jsonb; prior jsonb; shown jsonb;
+begin
+ if jsonb_typeof(next_rows) is distinct from 'array' then raise exception 'ACCOUNT_SCOPE_INVALID';end if;
+ for e in select value from jsonb_array_elements(next_rows) loop
+  select x into prior from jsonb_array_elements(old_rows) x where x->>'id'=e->>'id';
+  select x into shown from jsonb_array_elements(visible_rows) x where x->>'id'=e->>'id';
+  if prior is not null and shown is null then raise exception 'ACCOUNT_SCOPE_HIDDEN';end if;
+  e:=jsonb_set(e,'{payments}',billflow_private.merge_scoped_rows(coalesce(prior->'payments','[]'),coalesce(shown->'payments','[]'),e->'payments',ids,'payments'));
+  result:=result||jsonb_build_array(e);
+ end loop;
+ for e in select value from jsonb_array_elements(visible_rows) loop
+  if exists(select 1 from jsonb_array_elements(e->'payments') x where x->>'scopedReadOnly'='true') and not exists(select 1 from jsonb_array_elements(next_rows) x where x->>'id'=e->>'id') then raise exception 'ACCOUNT_SCOPE_READ_ONLY';end if;
+ end loop;
+ return result;
+end $$;
+revoke all on function billflow_private.merge_scoped_payroll(jsonb,jsonb,jsonb,text[]) from public,anon,authenticated;
+
 CREATE OR REPLACE FUNCTION billflow_private.save_workspace(new_payload jsonb, expected_revision bigint)
  RETURNS bigint
  LANGUAGE plpgsql
@@ -133,10 +170,17 @@ begin
  if 'debts'=any(member.edit_menus) then allowed:=allowed||array['debts','documentSources'];end if;
  if 'budgets'=any(member.edit_menus) then allowed:=allowed||array['budgets','recurringExpenses','recurringExpenseNames'];end if;
  foreach k in array array['numbering','business','accounts','accountHolders','bookkeeping','entries','debts','categories','contacts','employees','budgets','recurringExpenses','recurringExpenseNames','documentSources','payroll'] loop
-  if k='numbering' and not(new_payload?'numbering') then continue;end if; if k='bookkeeping' and (new_payload->k is null or new_payload->k='null'::jsonb) then continue;end if; if k='recurringExpenseNames' and (new_payload->k is null or new_payload->k='null'::jsonb) then continue;end if; if member.account_ids is not null and k=any(array['accountHolders','bookkeeping','debts','payroll','budgets','recurringExpenses','recurringExpenseNames','documentSources']) then
+  if k='numbering' and not(new_payload?'numbering') then continue;end if; if k='bookkeeping' and (new_payload->k is null or new_payload->k='null'::jsonb) then continue;end if; if k='recurringExpenseNames' and (new_payload->k is null or new_payload->k='null'::jsonb) then continue;end if; if member.account_ids is not null and k=any(array['accountHolders','bookkeeping']) then
    if coalesce(new_payload->k,'null') is distinct from coalesce(projected->k,'null') then raise exception 'ACCOUNT_SCOPE_GLOBAL';end if;
   elsif member.account_ids is not null and k=any(array['accounts','entries']) and k=any(allowed) then
    merged:=jsonb_set(merged,array[k],billflow_private.merge_scoped_rows(coalesce(old->k,'[]'),coalesce(projected->k,'[]'),new_payload->k,member.account_ids,k));
+  elsif member.account_ids is not null and k='payroll' and k=any(allowed) then
+   merged:=jsonb_set(merged,array[k],billflow_private.merge_scoped_payroll(coalesce(old->k,'[]'),coalesce(projected->k,'[]'),new_payload->k,member.account_ids));
+  elsif member.account_ids is not null and k='debts' and k=any(allowed) then
+   for x in select value from jsonb_array_elements(new_payload->'debts') loop
+    if coalesce(x->'scopedPaid','0') is distinct from coalesce((select d->'scopedPaid' from jsonb_array_elements(projected->'debts') d where d->>'id'=x->>'id'),'0') then raise exception 'ACCOUNT_SCOPE_INVALID';end if;
+   end loop;
+   merged:=jsonb_set(merged,array[k],coalesce((select jsonb_agg(d-'scopedPaid') from jsonb_array_elements(new_payload->'debts') d),'[]'));
   elsif k=any(allowed) then merged:=jsonb_set(merged,array[k],coalesce(new_payload->k,'[]'));
   elsif coalesce(new_payload->k,'[]') is distinct from coalesce(projected->k,'[]') then raise exception 'MENU_FORBIDDEN:%',k;end if;
  end loop;
@@ -169,6 +213,7 @@ begin
  if m.user_id is null then return false;end if;
  if m.account_ids is null then return true;end if;
  fid:=split_part(object_name,'/',2);
+ if 'inbox'=any(m.menus) and exists(select 1 from public.billflow_line_inbox d where d.owner=boss and d.file_id::text=fid and d.status<>'confirmed') then return true;end if;
  select payload into p from public.billflow_ledgers where owner=boss;
  m.account_ids:=billflow_private.effective_account_scope(p,m.account_ids);
  if m.account_ids is null then return true;end if;
