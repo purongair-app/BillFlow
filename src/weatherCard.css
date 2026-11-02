@@ -51,3 +51,25 @@
 .wx-bottom{font-size:12px}.wx-place{font-size:13px}.wx-bottom .wx-motion-link,.wx-bottom .wx-sound button{font-size:12px}
 @container weather (max-width:800px){.wx-forecast{margin-left:0;width:100%}.wx-bottom{font-size:11px}.wx-bottom .wx-motion-link,.wx-bottom .wx-sound button{font-size:11px}}
 @media(max-width:650px){.wx-card .wx-bottom{flex-direction:row;align-items:center;gap:2px 7px}.wx-card .wx-bottom button,.wx-card[data-period=night] .wx-bottom button{min-height:44px}.wx-card .wx-bottom .wx-disclaimer{margin-right:0}.wx-card .wx-bottom .wx-sound{margin-left:auto}.wx-card .wx-bottom>span[aria-hidden]{display:none}}
+
+/* Keep the banner compact in the narrower BillFlow dashboard column too. */
+@container weather (min-width:800px) and (max-width:1099px){
+ .wx-content{grid-template-columns:minmax(0,1fr) minmax(320px,.9fr);gap:16px}
+ .wx-current{flex-wrap:nowrap;gap:12px}
+ .wx-description{flex-basis:auto;min-width:0}
+ .wx-description b{font-size:18px}
+ .wx-description p{font-size:11px}
+ .wx-temperature{font-size:56px}
+ .wx-temperature>span{font-size:28px}
+ .wx-icon svg{width:58px;height:58px}
+ .wx-forecast{margin-left:82px;width:calc(100% - 82px);margin-top:16px}
+ .wx-day{gap:4px;padding:0}
+ .wx-day svg{width:24px;height:24px}
+ .wx-day>span:first-child{font-size:10px}
+ .wx-day b{font-size:12px}.wx-day em{font-size:10px;margin-left:4px}
+ .wx-card .wx-bottom{position:absolute;right:30px;bottom:27px;max-width:43%;margin:0;gap:2px 4px;font-size:10px}
+ .wx-card .wx-bottom .wx-place{font-size:11px;padding:5px 8px;margin-right:3px}
+ .wx-card .wx-bottom .wx-motion-link,.wx-card .wx-bottom .wx-sound button{font-size:10px;min-height:26px}
+ .wx-card .wx-update{position:absolute;right:30px;bottom:9px}
+}
+@media(min-width:651px){.wx-card:has(.wx-status:not(:empty)){padding-bottom:16px}.wx-card:has(.wx-status:not(:empty)) .wx-bottom,.wx-card:has(.wx-status:not(:empty)) .wx-update{position:static;max-width:none}.wx-card:has(.wx-status:not(:empty)) .wx-bottom{margin-top:12px}}
