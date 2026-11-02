@@ -1,6 +1,17 @@
 -- Account scopes: NULL = all current/future accounts; empty array = no accounts.
 alter table public.billflow_members add column if not exists account_ids text[] default null;
 
+-- A fixed selection covering every current account can use shared modules.
+-- Stored IDs remain fixed: a future unselected account restores restrictions.
+create or replace function billflow_private.effective_account_scope(p jsonb, ids text[]) returns text[]
+language sql immutable security invoker set search_path='' as $$
+ select case when ids is null then null
+ when cardinality(ids)>0 and jsonb_array_length(coalesce(p->'accounts','[]'))>0
+ and not exists(select 1 from jsonb_array_elements(coalesce(p->'accounts','[]')) a where not coalesce(a->>'id'=any(ids),false))
+ then null else ids end;
+$$;
+revoke all on function billflow_private.effective_account_scope(jsonb,text[]) from public,anon,authenticated;
+
 create or replace function billflow_private.project_member_payload(p jsonb, menus text[], ids text[]) returns jsonb
 language plpgsql immutable security invoker set search_path='' as $$
 declare result jsonb; rows jsonb:='[]'; e jsonb; visible_from boolean; visible_to boolean;
@@ -42,6 +53,7 @@ begin
  p:=coalesce(p,billflow_private.default_payload());
  if who=boss then return jsonb_build_object('payload',p,'revision',coalesce(rev,0),'access',jsonb_build_object('owner',true,'workspaceOwner',boss,'menus',array['overview','entries','cashbook','accounts','people','debts','budgets','reports','inbox','line','settings','permissions'],'editMenus',array['entries','accounts','people','debts','budgets']));end if;
  select * into m from public.billflow_members where user_id=who and enabled;
+ m.account_ids:=billflow_private.effective_account_scope(p,m.account_ids);
  return jsonb_build_object('payload',case when m.user_id is not null and cardinality(m.menus)>0 then billflow_private.project_member_payload(p,billflow_private.scoped_menus(m.menus,m.account_ids),m.account_ids) else null end,'revision',coalesce(rev,0),'access',jsonb_build_object('owner',false,'workspaceOwner',boss,'menus',billflow_private.scoped_menus(coalesce(m.menus,'{}'),m.account_ids),'editMenus',billflow_private.scoped_menus(coalesce(m.edit_menus,'{}'),m.account_ids),'accountIds',m.account_ids));
 end $function$
 ;
@@ -109,6 +121,9 @@ begin
  select payload,revision into old,rev from public.billflow_ledgers where owner=boss for update;
  old:=coalesce(old,billflow_private.default_payload());rev:=coalesce(rev,0);
  if rev is distinct from expected_revision then raise exception 'CONFLICT';end if;
+ -- A fixed full selection may edit existing accounts, but never adds an unselected ID.
+ if member.account_ids is not null and exists(select 1 from jsonb_array_elements(coalesce(new_payload->'accounts','[]')) a where not coalesce(a->>'id'=any(member.account_ids),false)) then raise exception 'ACCOUNT_SCOPE_INVALID';end if;
+ member.account_ids:=billflow_private.effective_account_scope(old,member.account_ids);
  member.menus:=billflow_private.scoped_menus(member.menus,member.account_ids);
  member.edit_menus:=billflow_private.scoped_menus(member.edit_menus,member.account_ids);
  projected:=billflow_private.project_member_payload(old,member.menus,member.account_ids);merged:=old;
@@ -155,6 +170,8 @@ begin
  if m.account_ids is null then return true;end if;
  fid:=split_part(object_name,'/',2);
  select payload into p from public.billflow_ledgers where owner=boss;
+ m.account_ids:=billflow_private.effective_account_scope(p,m.account_ids);
+ if m.account_ids is null then return true;end if;
  projected:=billflow_private.project_member_payload(p,billflow_private.scoped_menus(m.menus,m.account_ids),m.account_ids);
  return jsonb_path_exists(projected,'$.**.file ? (@.id == $id || @.previewId == $id || @.lineImageId == $id)',jsonb_build_object('id',fid));
 end $$;
