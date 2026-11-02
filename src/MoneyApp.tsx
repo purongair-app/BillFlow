@@ -247,7 +247,7 @@ useEffect(()=>{
  const previous=document.body.style.overflow;
  document.body.style.overflow='hidden';
  const close=(event:KeyboardEvent)=>{if(event.key==='Escape'){M(false);document.getElementById('app-menu-trigger')?.focus();}};
- const viewport=window.matchMedia('(min-width:1181px)');
+ const viewport=window.matchMedia('(min-width:1181px) and (hover:hover) and (pointer:fine)');
  const resized=()=>{if(viewport.matches)M(false);};
  document.addEventListener('keydown',close);viewport.addEventListener('change',resized);
  return()=>{document.body.style.overflow=previous;document.removeEventListener('keydown',close);viewport.removeEventListener('change',resized);};
