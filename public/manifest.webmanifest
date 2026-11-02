@@ -1,0 +1,6 @@
+{
+ "name":"PUROnGBillFlow", "short_name":"BillFlow", "lang":"th",
+ "start_url":"./", "scope":"./", "display":"standalone",
+ "background_color":"#f6f8f7", "theme_color":"#164f3c",
+ "icons":[{"src":"billflow-logo-green.png","sizes":"any","type":"image/png","purpose":"any"}]
+}
