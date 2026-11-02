@@ -9,7 +9,8 @@ import {netAmount,validateWithholding,type WithholdingTax} from './withholding.t
 import {chartOfAccounts,validateBookkeeping,type Bookkeeping} from './bookkeeping.ts';
 import {validateRecurring,validateRecurringNames,type RecurringExpenseName,type RecurringExpense} from './recurring.ts';
 export type ContactKind='customer'|'creditor';
-export type Contact={kind?:ContactKind,id:string,code:string,name:string,note:string,active:boolean};
+export type CustomerType='ทั่วไป'|'ร้านค้า'|'บริษัท'|'หน่วยงาน';
+export type Contact={kind?:ContactKind,id:string,code:string,name:string,note:string,active:boolean,customerType?:CustomerType,previousCodes?:string[]};
 export type Employee=Partial<EmployeeDetails>&{userId?:string,loginEmail?:string,photo?:string,id:string,code:string,name:string,position:string,active:boolean};
 export type Account={id:string,name:string,opening:number,kind?:'cash'|'bank'|'promptpay'|'other',bankName?:string,accountHolder?:string,accountNumber?:string};
 export type ExpenseKind='general'|'fuel'|'meal'|'electricity'|'water'|'other';
