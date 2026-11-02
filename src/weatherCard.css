@@ -94,3 +94,17 @@
  .wx-card .wx-bottom .wx-motion-link,.wx-card .wx-bottom .wx-sound button{font-size:10px;min-height:24px}
  .wx-card .wx-update{right:20px;bottom:6px;font-size:8px}
 }
+
+/* Scale the desktop banner with its available width, matching 1347 × 210. */
+@media(min-width:651px){
+ .wx-card{aspect-ratio:6.42 / 1;min-height:160px;height:auto}
+ .wx-card:has(.wx-status:not(:empty)){aspect-ratio:auto}
+}
+@container weather (min-width:800px) and (max-width:1026px){
+ .wx-context{gap:8px}
+ .wx-datetime>span,.wx-datetime time{font-size:16px}
+ .wx-location select{height:36px}
+ .wx-refresh{min-height:30px!important}
+ .wx-card .wx-bottom .wx-place{padding:2px 6px}
+ .wx-card .wx-bottom .wx-motion-link,.wx-card .wx-bottom .wx-sound button{min-height:22px}
+}
