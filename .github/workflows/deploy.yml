@@ -1,18 +1,12 @@
-name: Deploy BillFlow
+name: Validate BillFlow source
 on:
   push:
     branches: [main]
   workflow_dispatch:
 permissions:
   contents: read
-  actions: read
-  pages: write
-  id-token: write
-concurrency:
-  group: billflow-publish
-  cancel-in-progress: true
 jobs:
-  build:
+  validate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -22,50 +16,6 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
+      - run: node --test tests/suite-auth.test.mjs
       - run: npm run build
-        env:
-          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
-          VITE_OWNER_EMAIL: ${{ vars.VITE_OWNER_EMAIL }}
-          VITE_AUTH_EMAIL_READY: ${{ vars.VITE_AUTH_EMAIL_READY }}
-      - name: Restore recent published assets
-        uses: actions/cache@v4
-        with:
-          path: .pages-assets
-          key: billflow-assets-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: |
-            billflow-assets-
-      - name: Retain old asset URLs for open browser tabs
-        run: node scripts/retain-assets.mjs
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: dist
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Wait for existing Pages publication
-        uses: actions/github-script@v7
-        with:
-          script: |
-            // This repository also has branch-based Pages enabled. Publish the
-            // compiled app last so a legacy source build cannot overwrite it.
-            for (let attempt = 0; attempt < 60; attempt++) {
-              const {data} = await github.rest.actions.listWorkflowRunsForRepo({
-                owner: context.repo.owner, repo: context.repo.repo,
-                head_sha: context.sha, per_page: 100
-              });
-              const legacy = data.workflow_runs.filter(run =>
-                run.name === 'pages build and deployment' && run.id !== context.runId
-              );
-              if (legacy.length && legacy.every(run => run.status === 'completed')) return;
-              if (!legacy.length && attempt >= 6) return;
-              await new Promise(resolve => setTimeout(resolve, 5000));
-            }
-            core.setFailed('Legacy Pages publication is still running; retry this workflow after it completes.');
-      - name: Publish
-        id: deployment
-        uses: actions/deploy-pages@v4
+# Production is served by Cloudflare Workers. GitHub Pages publication is retired.
